@@ -5,17 +5,7 @@
 
 // Place any necessary global variables here
 
-//double startTime, endTime;
-
 int main(int argc, char *argv[]){
-
-	/*
-	 *
-	 * Implement Here
-	 *
-	 *
-	 */
-
     //Author: Michael Comatas
 
     struct timeval currTime;
