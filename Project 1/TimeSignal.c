@@ -31,40 +31,12 @@ void handle_sigfpe(int signum){
 
 int main(int argc, char *argv[]){
 
-	/*
-	 *
-	 * Implement Here
-	 *
-	 *
-	 */
-	//struct timeval startTime, endTime;
-
-	/*int i = 0;
-	int x = 5;
-	int y = 0;
-	int z = 0;
-	while( i < 100000 )
-	{
-		signal( SIGFPE, handle_sigfpe );
-		z = x / y;
-		i++;
-	}*/
-
-	//gettimeofday( &startTime, NULL );
-
 	int x = 5;
 	int y = 0;
 	int z = 0;
 	gettimeofday( &startTime, NULL );
 	signal( SIGFPE, handle_sigfpe );
 	z = x / y;
-
-	/*gettimeofday( &endTime, NULL );
-
-	double seconds = (endTime.tv_sec - startTime.tv_sec);
-    double micros = ((seconds * 1000000) + endTime.tv_usec) - (startTime.tv_usec);
-
-	double avgTime = micros / 100000;*/
 
 	return 0;
 
