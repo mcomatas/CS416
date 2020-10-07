@@ -21,6 +21,18 @@
 
 typedef uint mypthread_t;
 
+enum my_pthread_state {
+	/*ACTIVE, // 0
+	BLOCKED, // 1
+	DEAD // 2 */
+
+	READY, // 0
+	START, // 1
+	RUNNING, // 2
+	WAITING, // 3
+	DONE // 4
+};
+
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
 	// thread Id
@@ -31,6 +43,13 @@ typedef struct threadControlBlock {
 	// And more ...
 
 	// YOUR CODE HERE
+	int tid; // thread id
+	enum my_pthread_state state;
+	int priority; // I'm thinking the lower the int the higher priority?
+	int* stack; //stack pointer, I don't know if this should be an int or not
+
+	
+
 } tcb;
 
 /* mutex struct definition */
@@ -44,6 +63,101 @@ typedef struct mypthread_mutex_t {
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
+
+// queue data structure here for run queue
+typedef struct Queue
+{
+	int front, rear, size; //using queue of ints for now to set up data structure
+	unsigned capacity;
+	int* array;
+} queue;
+
+struct Queue* createQueue(unsigned cap)
+{
+	struct Queue* queue = (struct Queue*)malloc(sizeof(struct Queue));
+	queue->capacity = cap;
+	queue->front = 0; //just initializing things to 0 here to begin
+	queue->size = 0;
+
+	queue->rear = cap - 1;
+	queue->array = (int*)malloc(queue->capacity * sizeof(int));
+	return queue;
+}
+
+int isFull(struct Queue* queue)
+{
+	if( queue->size == queue->capacity )
+	{
+		return 1; //true
+	}
+	else
+	{
+		return 0; //false
+	}
+}
+
+int isEmpty(struct Queue* queue)
+{
+	if( queue->size == 0 )
+	{
+		return 1; //true
+	}
+	else
+	{
+		return 0; //false 
+	}
+}
+
+void enqueue(struct Queue* queue, int item)
+{
+	if( isFull(queue) == 1 )
+	{
+		return;
+	}
+	else
+	{
+		queue->rear = (queue->rear + 1) % queue->capacity;
+		queue->array[queue->rear] = item;
+		queue->size = queue->size + 1;
+	}
+}
+
+int dequeue(struct Queue* queue)
+{
+	if( isEmpty(queue) == 1 )
+	{
+		return -1; //filler -1 for now, could be INT_MIN or something but wont be returning ints in the end
+	}
+	int item = queue->array[queue->front];
+	queue->front = (queue->front + 1) % queue->capacity;
+	queue->size = queue->size - 1;
+	return item;
+}
+
+int front(struct Queue* queue)
+{
+	if( isEmpty(queue) == 1 )
+	{
+		return -1; //filler again
+	}
+	else
+	{
+		return queue->array[queue->front];
+	}
+}
+
+int rear(struct Queue* queue)
+{
+	if( isEmpty(queue) == 1 )
+	{
+		return -1; //filler again
+	}
+	else
+	{
+		return queue->array[queue->rear];
+	}
+	
+}
 
 
 /* Function Declarations: */
