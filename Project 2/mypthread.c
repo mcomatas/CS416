@@ -18,6 +18,24 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
        // allocate space of stack for this thread to run
        // after everything is all set, push this thread int
        // YOUR CODE HERE
+	   //initialize new thread
+		tcb newThread;
+		newThread.threadstack = malloc(SIGSTKSZ);
+		
+		if(newThread.threadstack == NULL){
+			//handle malloc allocation error here
+		}
+		
+		if(getcontext(&newThread.threadctx) < 0){
+			//handle getcontext initialization error here
+		}
+
+		newThread.threadctx.uc_stack.ss_sp = newThread.threadctx.threadstack;
+		newThread.threadctx.uc_stack.ss_size = STACK_SIZE;
+		newThread.threadctx.uc_stack.ss_flags = 0; //this mgiht change, its how many arguments it takes i think
+		newThread.threadctx.uc_link = NULL;
+		//makecontext here, probably has to do with the void *(*function)(void*) argument
+		//code here to insert TCB into a queue, gonna have to make that ourselves
 
     return 0;
 };

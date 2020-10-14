@@ -18,6 +18,11 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ucontext.h>
+#include <signal.h>
+#include <string.h>
+
+#define STACK_SIZE SIGSTKSZ
 
 typedef uint mypthread_t;
 
@@ -43,13 +48,14 @@ typedef struct threadControlBlock {
 	// And more ...
 
 	// YOUR CODE HERE
-	int tid; // thread id
+	//int tid; // thread id
+	mypthread_t tid; /* project desc suggests to use mypthread_t so changing this just in case */
 	enum my_pthread_state state;
 	int priority; // I'm thinking the lower the int the higher priority?
-	int* stack; //stack pointer, I don't know if this should be an int or not
-
-	
-
+	//context stuff
+	ucontext_t threadctx;
+	//int* stack; //stack pointer, I don't know if this should be an int or not
+	void* threadstack;
 } tcb;
 
 /* mutex struct definition */
