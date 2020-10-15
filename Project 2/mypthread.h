@@ -25,7 +25,7 @@
 
 #define STACK_SIZE SIGSTKSZ
 #define QUEUE_SIZE 50
-#define QUANTUM 10 //milliseconds
+#define QUANTUM 20 //milliseconds
 #define handle_error(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
@@ -57,8 +57,8 @@ typedef struct threadControlBlock {
 	enum my_pthread_state status;
 	int quantumsElapsed; //lower quantums elapsed = higher priority for scheduler
 	//enum thread_priority priority; // I'm thinking the lower the int the higher priority?
-	void* threadstack;
-	ucontext_t threadctx;
+	void* threadStack;
+	ucontext_t threadContext;
 	
 } tcb;
 
@@ -84,6 +84,7 @@ typedef struct Queue
 } queue;
 
 queue* runQueue; //runqueue
+static ucontext_t schedContext;
 
 struct Queue* createQueue(unsigned cap)
 {
@@ -179,6 +180,8 @@ tcb rear(struct Queue* queue)
 
 
 /* Function Declarations: */
+void startup();
+void swapToScheduler();
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void

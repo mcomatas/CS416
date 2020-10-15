@@ -11,13 +11,6 @@
 int idCounter = 0;
 int runningId = 0; //id of currently running thread
 
-//timer stuff, change quantum as appropriate. 1 millisecond = 1000 microsecond
-struct itimerval timer;
-timer.it_interval.tv_usec = QUANTUM * 1000; 
-timer.it_interval.tv_sec = 0;
-timer.it_value.tv_usec = QUANTUM * 1000;
-timer.it_value.tv_sec = 0;
-
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
                       void *(*function)(void*), void * arg) {
@@ -26,30 +19,31 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
        // allocate space of stack for this thread to run
        // after everything is all set, push this thread int
        // YOUR CODE HERE
+	   if(idCounter == 0) startup(); //initialize timer and scheduler context upon creation of first thread
 	   //initialize new thread
+
 		tcb newThread;
 		newThread.tid = idCounter; 
 
-		if(idCounter == 49) idCounter = 0;
-		else idCounter++;
+		idCounter++;
 
 		newThread.status = READY;
 		newThread.quantumsElapsed = 0;
 
-		newThread.threadstack = malloc(SIGSTKSZ);
-		if(newThread.threadstack == NULL){
-			handle_error("threadstack malloc error");
+		newThread.threadStack = malloc(SIGSTKSZ);
+		if(newThread.threadStack == NULL){
+			handle_error("threadStack malloc error");
 		}
 		
-		if(getcontext(&newThread.threadctx) < 0){
+		if(getcontext(&newThread.threadContext) < 0){
 			handle_error("thread context error");
 		}
 
-		newThread.threadctx.uc_stack.ss_sp = newThread.threadstack;
-		newThread.threadctx.uc_stack.ss_size = STACK_SIZE;
-		newThread.threadctx.uc_stack.ss_flags = 0; //this mgiht change, its how many arguments it takes i think
-		newThread.threadctx.uc_link = NULL;
-		makecontext(&newThread.threadctx, (void*)function, 1, arg);
+		newThread.threadContext.uc_stack.ss_sp = newThread.threadStack;
+		newThread.threadContext.uc_stack.ss_size = STACK_SIZE;
+		newThread.threadContext.uc_stack.ss_flags = 0; //this mgiht change, its how many arguments it takes i think
+		newThread.threadContext.uc_link = NULL;
+		makecontext(&newThread.threadContext, (void*)function, 1, arg);
 
 		//insert TCB into queue, runqueue is in header file after queue typedef
 		enqueue(runQueue, newThread);
@@ -169,3 +163,33 @@ static void sched_mlfq() {
 // Feel free to add any other functions you need
 
 // YOUR CODE HERE
+void startup(){
+	//setup timer for schedule
+	struct sigaction sa;
+	memset (&sa, 0, sizeof (sa));
+	sa.sa_handler = &schedule; //what function is called when timer signal happens
+	sigaction (SIGPROF, &sa, NULL);
+	//timer struct
+	struct itimerval timer;
+	//when does the timer reset
+	timer.it_interval.tv_usec = QUANTUM * 1000; //1000 microsecs = 1 ms
+	timer.it_interval.tv_sec = 0;
+	//set up current timer
+	timer.it_value.tv_usec = QUANTUM * 1000;
+	timer.it_value.tv_sec = 0;
+    setitimer(ITIMER_PROF, &timer, NULL);
+
+	//set up scheduler context
+	void* schedulerStack = malloc(STACK_SIZE);
+	if(schedulerStack == NULL){
+		handle_error("bad scheduler malloc");
+	}
+	if(getcontext(&schedContext) < 0){
+		handle_error("getcontext schedContext error");	
+	}
+	schedContext.uc_stack.ss_sp = schedulerStack;
+	schedContext.uc_stack.ss_size = STACK_SIZE;
+	schedContext.uc_stack.ss_flags = 0;
+	schedContext.uc_link = NULL;
+	makecontext(&schedContext, (void*)schedule, 0);
+}
