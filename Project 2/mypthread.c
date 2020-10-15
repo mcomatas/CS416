@@ -8,9 +8,15 @@
 
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
-queue* threadQueue; //working capacity
 int idCounter = 0;
-int runningId = 0;
+int runningId = 0; //id of currently running thread
+
+//timer stuff, change quantum as appropriate. 1 millisecond = 1000 microsecond
+struct itimerval timer;
+timer.it_interval.tv_usec = QUANTUM * 1000; 
+timer.it_interval.tv_sec = 0;
+timer.it_value.tv_usec = QUANTUM * 1000;
+timer.it_value.tv_sec = 0;
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
@@ -28,7 +34,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		else idCounter++;
 
 		newThread.status = READY;
-		newThread.priority = MEDIUM;
+		newThread.quantumsElapsed = 0;
 
 		newThread.threadstack = malloc(SIGSTKSZ);
 		if(newThread.threadstack == NULL){
@@ -45,9 +51,8 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		newThread.threadctx.uc_link = NULL;
 		makecontext(&newThread.threadctx, (void*)function, 1, arg);
 
-		newThread.quantumsElapsed = 0;
-		//insert TCB into queue
-		enqueue(threadQueue, newThread);
+		//insert TCB into queue, runqueue is in header file after queue typedef
+		enqueue(runQueue, newThread);
 
     return 0;
 };
@@ -57,8 +62,9 @@ int mypthread_yield() {
 
 	// change thread state from Running to Ready
 	// save context of this thread to its thread control block
-	// wwitch from thread context to scheduler context
+	// switch from thread context to scheduler context
 	// YOUR CODE HERE
+
 	
 	return 0;
 };

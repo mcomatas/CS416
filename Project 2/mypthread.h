@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
@@ -42,12 +43,6 @@ enum my_pthread_state {
 	DONE // 4
 };
 
-enum thread_priority{
-	HIGH, //0
-	MEDIUM, //1
-	LOW //2
-};
-
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
 	// thread Id
@@ -60,18 +55,18 @@ typedef struct threadControlBlock {
 	// YOUR CODE HERE
 	int tid; // thread id
 	enum my_pthread_state status;
-	enum thread_priority priority; // I'm thinking the lower the int the higher priority?
+	int quantumsElapsed; //lower quantums elapsed = higher priority for scheduler
+	//enum thread_priority priority; // I'm thinking the lower the int the higher priority?
 	void* threadstack;
 	ucontext_t threadctx;
-
-	int quantumsElapsed;
+	
 } tcb;
 
 /* mutex struct definition */
 typedef struct mypthread_mutex_t {
 	/* add something here */
-
 	// YOUR CODE HERE
+	int currentHolder; //thread id of current thread using mutex
 } mypthread_mutex_t;
 
 /* define your data structures here: */
@@ -87,6 +82,8 @@ typedef struct Queue
 	//int* array;
 	tcb* array; //change this from int array to mypthread_t array
 } queue;
+
+queue* runQueue; //runqueue
 
 struct Queue* createQueue(unsigned cap)
 {
