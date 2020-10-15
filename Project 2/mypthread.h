@@ -73,20 +73,21 @@ typedef struct mypthread_mutex_t {
 // queue data structure here for run queue
 typedef struct Queue
 {
-	int front, rear, size; //using queue of ints for now to set up data structure
+	int front, rear, size; //using queue of ints for now to set up data structure, this is ok to keep int because they are indexs of what is the front and rear
 	unsigned capacity;
-	int* array;
+	//int* array;
+	tcb* array; //change this from int array to mypthread_t array
 } queue;
 
 struct Queue* createQueue(unsigned cap)
 {
 	struct Queue* queue = (struct Queue*)malloc(sizeof(struct Queue));
 	queue->capacity = cap;
-	queue->front = 0; //just initializing things to 0 here to begin
+	queue->front = 0; //just initializing things to 0 here to begin -- these should be ok to keep at 0 since they are like indices for the array
 	queue->size = 0;
 
 	queue->rear = cap - 1;
-	queue->array = (int*)malloc(queue->capacity * sizeof(int));
+	queue->array = (tcb*)malloc(queue->capacity * sizeof(tcb)); //the tcb used to be int here
 	return queue;
 }
 
@@ -114,11 +115,11 @@ int isEmpty(struct Queue* queue)
 	}
 }
 
-void enqueue(struct Queue* queue, int item)
+void enqueue(struct Queue* queue, tcb item)//changed int item to mypthread_t item
 {
 	if( isFull(queue) == 1 )
 	{
-		return;
+		return;//not sure what to return here 
 	}
 	else
 	{
@@ -128,23 +129,27 @@ void enqueue(struct Queue* queue, int item)
 	}
 }
 
-int dequeue(struct Queue* queue)
+tcb dequeue(struct Queue* queue)//changed return type from int to mypthread_t
 {
 	if( isEmpty(queue) == 1 )
 	{
-		return -1; //filler -1 for now, could be INT_MIN or something but wont be returning ints in the end
+		tcb filler;
+		return filler; //filler -1 for now, could be INT_MIN or something but wont be returning ints in the end
 	}
-	int item = queue->array[queue->front];
+	//int item = queue->array[queue->front];
+	//mypthread_t item = queue->array[queue->front];
+	tcb item = queue->array[queue->front];
 	queue->front = (queue->front + 1) % queue->capacity;
 	queue->size = queue->size - 1;
 	return item;
 }
 
-int front(struct Queue* queue)
+tcb front(struct Queue* queue)//changed retrun type
 {
 	if( isEmpty(queue) == 1 )
 	{
-		return -1; //filler again
+		tcb filler;
+		return filler; //filler again, I don't know what to return if empty since it contains tcb, could it be a blank return statement, or maybe NULL?
 	}
 	else
 	{
@@ -152,11 +157,12 @@ int front(struct Queue* queue)
 	}
 }
 
-int rear(struct Queue* queue)
+tcb rear(struct Queue* queue)
 {
 	if( isEmpty(queue) == 1 )
 	{
-		return -1; //filler again
+		tcb filler;
+		return filler; //filler again, maybe NULL again? just made a black tcb variable to return basically 
 	}
 	else
 	{
