@@ -8,7 +8,9 @@
 
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
-
+queue* threadQueue; //working capacity
+int idCounter = 0;
+int runningId = 0;
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
@@ -20,22 +22,32 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
        // YOUR CODE HERE
 	   //initialize new thread
 		tcb newThread;
+		newThread.tid = idCounter; 
+
+		if(idCounter == 49) idCounter = 0;
+		else idCounter++;
+
+		newThread.status = READY;
+		newThread.priority = MEDIUM;
+
 		newThread.threadstack = malloc(SIGSTKSZ);
-		
 		if(newThread.threadstack == NULL){
-			//handle malloc allocation error here
+			handle_error("threadstack malloc error");
 		}
 		
 		if(getcontext(&newThread.threadctx) < 0){
-			//handle getcontext initialization error here
+			handle_error("thread context error");
 		}
 
-		newThread.threadctx.uc_stack.ss_sp = newThread.threadctx.threadstack;
+		newThread.threadctx.uc_stack.ss_sp = newThread.threadstack;
 		newThread.threadctx.uc_stack.ss_size = STACK_SIZE;
 		newThread.threadctx.uc_stack.ss_flags = 0; //this mgiht change, its how many arguments it takes i think
 		newThread.threadctx.uc_link = NULL;
-		//makecontext here, probably has to do with the void *(*function)(void*) argument
-		//code here to insert TCB into a queue, gonna have to make that ourselves
+		makecontext(&newThread.threadctx, (void*)function, 1, arg);
+
+		newThread.quantumsElapsed = 0;
+		//insert TCB into queue
+		enqueue(threadQueue, newThread);
 
     return 0;
 };
@@ -46,8 +58,8 @@ int mypthread_yield() {
 	// change thread state from Running to Ready
 	// save context of this thread to its thread control block
 	// wwitch from thread context to scheduler context
-
 	// YOUR CODE HERE
+	
 	return 0;
 };
 

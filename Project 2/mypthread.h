@@ -23,6 +23,10 @@
 #include <string.h>
 
 #define STACK_SIZE SIGSTKSZ
+#define QUEUE_SIZE 50
+#define QUANTUM 10 //milliseconds
+#define handle_error(msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 typedef uint mypthread_t;
 
@@ -38,6 +42,12 @@ enum my_pthread_state {
 	DONE // 4
 };
 
+enum thread_priority{
+	HIGH, //0
+	MEDIUM, //1
+	LOW //2
+};
+
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
 	// thread Id
@@ -48,14 +58,13 @@ typedef struct threadControlBlock {
 	// And more ...
 
 	// YOUR CODE HERE
-	//int tid; // thread id
-	mypthread_t tid; /* project desc suggests to use mypthread_t so changing this just in case */
-	enum my_pthread_state state;
-	int priority; // I'm thinking the lower the int the higher priority?
-	//context stuff
-	ucontext_t threadctx;
-	//int* stack; //stack pointer, I don't know if this should be an int or not
+	int tid; // thread id
+	enum my_pthread_state status;
+	enum thread_priority priority; // I'm thinking the lower the int the higher priority?
 	void* threadstack;
+	ucontext_t threadctx;
+
+	int quantumsElapsed;
 } tcb;
 
 /* mutex struct definition */
