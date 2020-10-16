@@ -9,7 +9,8 @@
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
 int idCounter = 0;
-int runningId = 0; //id of currently running thread
+int currentQuantumsElapsed = -1; //global variable to hold quantumsElapsed of current thread
+int currentId = -1; //tid of current/want to be current thread
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
@@ -158,7 +159,33 @@ static void schedule() {
 static void sched_stcf() {
 	// Your own implementation of STCF
 	// (feel free to modify arguments and return types)
-
+	while(1){
+		int i = 1;
+		int currentLowestQuantum = -1;
+		int lowestQuantumTid = -1;
+		for(i = 1; i < runQueue->size; i++){
+			if(runQueue->array[i].quantumsElapsed < currentQuantumsElapsed){ //found one that has been running for less time
+				// currentId = runQueue->array[i].tid;
+				// tcb oldFront = front(runQueue);
+				// while(front(runQueue).tid != currentId){
+				// 	tcb temp = dequeue(runQueue);
+				// 	enqueue(runQueue, temp);
+				// }
+				// resumeTimer();
+				// swapcontext(&oldFront.threadContext, &runQueue->array[runQueue->front].threadContext);
+				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
+				lowestQuantumTid = runQueue->array[i].tid;
+			}
+		}
+		tcb oldFront = front(runQueue);
+		while(front(runQueue).tid != lowestQuantumTid){
+			tcb temp = dequeue(runQueue);
+			enqueue(runQueue, temp);
+		}
+		resumeTimer();
+		if(lowestQuantumTid == currentId) swapcontext(&schedContext, &oldFront.threadContext);
+		else swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
+	}
 	// YOUR CODE HERE
 }
 
@@ -173,14 +200,32 @@ static void sched_mlfq() {
 // Feel free to add any other functions you need
 
 // YOUR CODE HERE
+void swapToScheduler(){
+	//pause timer
+	pauseTimer();
+	//swap the currently running thread's context (front of the queue) to scheduler context
+	// tcb toSwap = dequeue(runQueue);
+	// enqueue(runQueue, toSwap);
+	currentQuantumsElapsed = front(runQueue).quantumsElapsed;
+	currentId = front(runQueue).tid;
+	swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext);
+}
+
+void pauseTimer(){
+	struct itimerval zero_timer = {0};
+    setitimer(ITIMER_PROF, &zero_timer, &timer);
+}
+
+void resumeTimer(){
+	setitimer(ITIMER_PROF, &timer, NULL);
+}
+
 void startup(){
 	//setup timer for schedule
 	struct sigaction sa;
 	memset (&sa, 0, sizeof (sa));
-	sa.sa_handler = &schedule; //what function is called when timer signal happens
+	sa.sa_handler = &swapToScheduler; //what function is called when timer signal happens
 	sigaction (SIGPROF, &sa, NULL);
-	//timer struct
-	struct itimerval timer;
 	//when does the timer reset
 	timer.it_interval.tv_usec = QUANTUM * 1000; //1000 microsecs = 1 ms
 	timer.it_interval.tv_sec = 0;

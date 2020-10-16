@@ -85,6 +85,8 @@ typedef struct Queue
 
 queue* runQueue; //runqueue
 static ucontext_t schedContext;
+//timer struct
+struct itimerval timer;
 
 struct Queue* createQueue(unsigned cap)
 {
@@ -182,6 +184,8 @@ tcb rear(struct Queue* queue)
 /* Function Declarations: */
 void startup();
 void swapToScheduler();
+void pauseTimer();
+void resumeTimer();
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void
