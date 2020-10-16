@@ -248,3 +248,95 @@ void startup(){
 	schedContext.uc_link = NULL;
 	makecontext(&schedContext, (void*)schedule, 0);
 }
+
+struct Queue* createQueue(unsigned cap)
+{
+	struct Queue* queue = (struct Queue*)malloc(sizeof(struct Queue));
+	queue->capacity = cap;
+	queue->front = 0; //just initializing things to 0 here to begin -- these should be ok to keep at 0 since they are like indices for the array
+	queue->size = 0;
+
+	queue->rear = cap - 1;
+	queue->array = (tcb*)malloc(queue->capacity * sizeof(tcb)); //the tcb used to be int here
+	return queue;
+}
+
+int isFull(struct Queue* queue)
+{
+	if( queue->size == queue->capacity )
+	{
+		return 1; //true
+	}
+	else
+	{
+		return 0; //false
+	}
+}
+
+int isEmpty(struct Queue* queue)
+{
+	if( queue->size == 0 )
+	{
+		return 1; //true
+	}
+	else
+	{
+		return 0; //false 
+	}
+}
+
+void enqueue(struct Queue* queue, tcb item)//changed int item to mypthread_t item
+{
+	if( isFull(queue) == 1 )
+	{
+		return;//not sure what to return here 
+	}
+	else
+	{
+		queue->rear = (queue->rear + 1) % queue->capacity;
+		queue->array[queue->rear] = item;
+		queue->size = queue->size + 1;
+	}
+}
+
+tcb dequeue(struct Queue* queue)//changed return type from int to mypthread_t
+{
+	if( isEmpty(queue) == 1 )
+	{
+		tcb filler;
+		return filler; //filler -1 for now, could be INT_MIN or something but wont be returning ints in the end
+	}
+	//int item = queue->array[queue->front];
+	//mypthread_t item = queue->array[queue->front];
+	tcb item = queue->array[queue->front];
+	queue->front = (queue->front + 1) % queue->capacity;
+	queue->size = queue->size - 1;
+	return item;
+}
+
+tcb front(struct Queue* queue)//changed retrun type
+{
+	if( isEmpty(queue) == 1 )
+	{
+		tcb filler;
+		return filler; //filler again, I don't know what to return if empty since it contains tcb, could it be a blank return statement, or maybe NULL?
+	}
+	else
+	{
+		return queue->array[queue->front];
+	}
+}
+
+tcb rear(struct Queue* queue)
+{
+	if( isEmpty(queue) == 1 )
+	{
+		tcb filler;
+		return filler; //filler again, maybe NULL again? just made a black tcb variable to return basically 
+	}
+	else
+	{
+		return queue->array[queue->rear];
+	}
+	
+}
