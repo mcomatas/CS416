@@ -57,8 +57,18 @@ int mypthread_yield() {
 	// change thread state from Running to Ready
 	// save context of this thread to its thread control block
 	// switch from thread context to scheduler context
-	// YOUR CODE HERE
 
+	//could possibly look at front of queue? if the front of the queue is the one that is running, but the one that is running might not be in the queue
+	//look at the front of the queue and dequeue it because the front of the queue is the current running thread, we then swap context to the scheduler
+
+	tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
+	//I think we need to then swap context from this tcb context to the scheduler context, then all we do is enqueue this thread to the rear, since it is not terminating
+	swapcontext( &thread.threadContext, &schedContext );
+	thread.status = WAITING; //change status to waiting if it is in queue
+
+	//I think then we enqueue the tcb back into the queue
+	enqueue( runQueue, thread );
+	// YOUR CODE HERE
 	
 	return 0;
 };
