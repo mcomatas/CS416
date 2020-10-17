@@ -122,6 +122,7 @@ int mypthread_mutex_init(mypthread_mutex_t *mutex,
 		.locked = 0,
 		.currentHolder = front(runQueue).tid
 	};
+	mutexIdCounter++;
 	// YOUR CODE HERE
 	return 0;
 };
@@ -151,6 +152,7 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
 /* destroy the mutex */
 int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
 	// Deallocate dynamic memory created in mypthread_mutex_init
+	// i dont think we had to allocate any memory, so i'll just release the lock and put all of the threads waiting on it back to ready mode
 
 	return 0;
 };
@@ -186,11 +188,12 @@ static void sched_stcf() {
 	// Your own implementation of STCF
 	// (feel free to modify arguments and return types)
 	while(1){
-		int i = 0;
+		int i, j;
 		int currentLowestQuantum;
 		int lowestQuantumTid;
 		//find a starter set of values that isnt waiting on another thread
-		for(int i = 0; i < runQueue->size; i++){ 
+		for(i = runQueue->front, j = 0; i <= runQueue->rear, j < runQueue->size; i++, j++){ 
+			if(i == runQueue->capacity) i = 0;
 			if(runQueue->array[i].waitingOn == -1){
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
@@ -198,7 +201,8 @@ static void sched_stcf() {
 			}
 		}
 		//find highest priority tcb (lowest runtime thus far) that isnt waiting on a thread
-		for(i = 0; i < runQueue->size; i++){ 
+		for(i = runQueue->front, j = 0; i <= runQueue->rear, j < runQueue->size; i++, j++){ 
+			if(i == runQueue->capacity) i = 0;
 			if(runQueue->array[i].quantumsElapsed < currentLowestQuantum && runQueue->array[i].waitingOn == -1){ //found one that has been running for less time
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
@@ -325,6 +329,7 @@ void enqueue(struct Queue* queue, tcb item)//changed int item to mypthread_t ite
 		queue->rear = (queue->rear + 1) % queue->capacity;
 		queue->array[queue->rear] = item;
 		queue->size = queue->size + 1;
+		if(DEBUGMODE) printf("enqueued thread id %d\n", item.tid);
 	}
 }
 
@@ -338,6 +343,7 @@ tcb dequeue(struct Queue* queue)//changed return type from int to mypthread_t
 	//int item = queue->array[queue->front];
 	//mypthread_t item = queue->array[queue->front];
 	tcb item = queue->array[queue->front];
+	if(DEBUGMODE) printf("dequeued thread id %d\n", item.tid);
 	queue->front = (queue->front + 1) % queue->capacity;
 	queue->size = queue->size - 1;
 	return item;
@@ -371,8 +377,9 @@ tcb rear(struct Queue* queue)
 }
 
 tcb findThread(struct Queue* queue, int targetTid){
-	int i = 0;
-	for(i = 0; i < queue->size; i++){
+	int i, j;
+	for(i = queue->front, j = 0; i <= queue->rear, j < queue->size; i++, j++){
+		if(i == queue->capacity) i = 0;
 		if(queue->array[i].tid == targetTid) return queue->array[i];
 	}
 	tcb nullreturn = {0};

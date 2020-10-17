@@ -26,7 +26,7 @@
 #include <string.h>
 
 #define STACK_SIZE SIGSTKSZ
-#define QUEUE_SIZE 125
+#define QUEUE_SIZE 10
 #define QUANTUM 10 //milliseconds
 #define handle_error(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
