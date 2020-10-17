@@ -29,6 +29,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		newThread.quantumsElapsed = 0;
 		newThread.waitingOn = -1;
 		newThread.beingWaitedOnBy = -1;
+		newThread.waitingOnMutex = -1;
 		if(idCounter == 0) newThread.status = START; 
 
 		idCounter++;
@@ -119,7 +120,7 @@ int mypthread_mutex_init(mypthread_mutex_t *mutex,
 	//initialize data structures for this mutex
 	*mutex = (mypthread_mutex_t){
 		.mutexId = mutexIdCounter,
-		.locked = 0,
+		.lockState = UNLOCKED,
 		.currentHolder = front(runQueue).tid
 	};
 	mutexIdCounter++;
@@ -134,6 +135,7 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
         // if acquiring mutex fails, push current thread into block list and //
         // context switch to the scheduler thread
 
+
         // YOUR CODE HERE
         return 0;
 };
@@ -143,7 +145,15 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
 	// Release mutex and make it available again.
 	// Put threads in block list to run queue
 	// so that they could compete for mutex later.
-
+	mutex->lockState = UNLOCKED;
+	int i, j;
+	for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){
+		if(i == runQueue->capacity) i = 0;
+		if(runQueue->array[i].waitingOnMutex == mutex->mutexId){
+			runQueue->array[i].waitingOnMutex = -1;
+			runQueue->array[i].status = READY;
+		}
+	}
 	// YOUR CODE HERE
 	return 0;
 };
@@ -152,7 +162,9 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
 /* destroy the mutex */
 int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
 	// Deallocate dynamic memory created in mypthread_mutex_init
-	// i dont think we had to allocate any memory, so i'll just release the lock and put all of the threads waiting on it back to ready mode
+	// i dont think we had to allocate any memory, 
+	//so i'll just release the lock and put all of the threads waiting on it back to ready mode
+	mutex->lockState = UNLOCKED;
 
 	return 0;
 };
@@ -191,19 +203,20 @@ static void sched_stcf() {
 		int i, j;
 		int currentLowestQuantum;
 		int lowestQuantumTid;
-		//find a starter set of values that isnt waiting on another thread
-		for(i = runQueue->front, j = 0; i <= runQueue->rear, j < runQueue->size; i++, j++){ 
+		//find a starter set of values that isnt waiting on another thread or a mutex
+		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
-			if(runQueue->array[i].waitingOn == -1){
+			if(runQueue->array[i].waitingOn == -1 && runQueue->array[i].waitingOnMutex == -1){
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
 				break;
 			}
 		}
 		//find highest priority tcb (lowest runtime thus far) that isnt waiting on a thread
-		for(i = runQueue->front, j = 0; i <= runQueue->rear, j < runQueue->size; i++, j++){ 
+		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
-			if(runQueue->array[i].quantumsElapsed < currentLowestQuantum && runQueue->array[i].waitingOn == -1){ //found one that has been running for less time
+			//look for a thread thats been running for less time, and isnt waiting on a thread/mutex
+			if(runQueue->array[i].quantumsElapsed < currentLowestQuantum && runQueue->array[i].waitingOn == -1 && runQueue->array[i].waitingOnMutex == -1){ 
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
 			}
@@ -234,9 +247,6 @@ static void sched_mlfq() {
 void swapToScheduler(){
 	//pause timer
 	pauseTimer();
-	//swap the currently running thread's context (front of the queue) to scheduler context
-	// tcb toSwap = dequeue(runQueue);
-	// enqueue(runQueue, toSwap);
 	tcb current = front(runQueue);
 	current.quantumsElapsed = current.quantumsElapsed + 1;
 	current.status = READY;
@@ -378,7 +388,7 @@ tcb rear(struct Queue* queue)
 
 tcb findThread(struct Queue* queue, int targetTid){
 	int i, j;
-	for(i = queue->front, j = 0; i <= queue->rear, j < queue->size; i++, j++){
+	for(i = queue->front, j = 0; j < queue->size; i++, j++){
 		if(i == queue->capacity) i = 0;
 		if(queue->array[i].tid == targetTid) return queue->array[i];
 	}

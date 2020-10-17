@@ -45,6 +45,11 @@ enum my_pthread_state {
 	DONE // 4
 };
 
+enum mutexState {
+	UNLOCKED, //0
+	LOCKED //1
+};
+
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
 	// thread Id
@@ -58,6 +63,7 @@ typedef struct threadControlBlock {
 	int tid; // thread id
 	int waitingOn; //tid of thread it is waiting on (thread join)
 	int beingWaitedOnBy; //tid of thread it is being waited on by (thread join)
+	int waitingOnMutex; //mutexid of mutex it is waiting to be unlocked
 	enum my_pthread_state status;
 	int quantumsElapsed; //lower quantums elapsed = higher priority for scheduler
 	//enum thread_priority priority; // I'm thinking the lower the int the higher priority?
@@ -71,7 +77,7 @@ typedef struct mypthread_mutex_t {
 	/* add something here */
 	// YOUR CODE HERE
 	int mutexId;
-	int locked;
+	int lockState;
 	int currentHolder; //thread id of current thread using mutex
 } mypthread_mutex_t;
 
