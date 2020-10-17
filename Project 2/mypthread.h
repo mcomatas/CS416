@@ -12,6 +12,8 @@
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_MYTHREAD macro */
 #define USE_MYTHREAD 1
 
+#define DEBUGMODE 1 //1 for debugging prints, 0 for none. 0 for final submission!
+
 /* include lib header files that you need here: */
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -24,7 +26,7 @@
 #include <string.h>
 
 #define STACK_SIZE SIGSTKSZ
-#define QUEUE_SIZE 50
+#define QUEUE_SIZE 125
 #define QUANTUM 10 //milliseconds
 #define handle_error(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -68,6 +70,8 @@ typedef struct threadControlBlock {
 typedef struct mypthread_mutex_t {
 	/* add something here */
 	// YOUR CODE HERE
+	int mutexId;
+	int locked;
 	int currentHolder; //thread id of current thread using mutex
 } mypthread_mutex_t;
 

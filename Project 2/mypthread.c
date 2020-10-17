@@ -9,6 +9,7 @@
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
 int idCounter = 0;
+int mutexIdCounter = 0;
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
@@ -22,14 +23,15 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 	   //initialize new thread
 
 		tcb newThread;
-		newThread.tid = idCounter; 
-
-		idCounter++;
-
+		newThread.tid = idCounter;
+		if(DEBUGMODE) printf("new thread with id %d created\n", idCounter);
 		newThread.status = READY;
 		newThread.quantumsElapsed = 0;
 		newThread.waitingOn = -1;
 		newThread.beingWaitedOnBy = -1;
+		if(idCounter == 0) newThread.status = START; 
+
+		idCounter++;
 
 		newThread.threadStack = malloc(SIGSTKSZ);
 		if(newThread.threadStack == NULL){
@@ -65,7 +67,7 @@ int mypthread_yield() {
 	tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
 	
 	//I think we need to then swap context from this tcb context to the scheduler context, then all we do is enqueue this thread to the rear, since it is not terminating
-	thread.status = WAITING; //change status to waiting if it is in queue
+	thread.status = READY; //change status to ready
 	//I think then we enqueue the tcb back into the queue
 	
 	enqueue( runQueue, thread );
@@ -83,10 +85,12 @@ void mypthread_exit(void *value_ptr) {
 	// YOUR CODE HERE
 	//I guess the only time this happens is when the currently running thread calls this right?
 	tcb finished = dequeue(runQueue);
+	finished.status = DONE;
 	//check if any thread is waiting on it, if there is then tell it it's good to go
 	if(finished.beingWaitedOnBy != -1){
 		tcb waiter = findThread(runQueue, finished.beingWaitedOnBy);
 		waiter.waitingOn = -1;
+		waiter.status = READY;
 	}
 	free(finished.threadStack);
 	//swapcontext(&finished.threadContext, &schedContext);
@@ -102,6 +106,7 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 	tcb waitingOnThread = findThread(runQueue, thread);
 	current.waitingOn = waitingOnThread.tid;
 	waitingOnThread.beingWaitedOnBy = current.tid;
+	current.status = WAITING;
 	enqueue(runQueue, current); //put caller back into the runqueue
 	swapcontext(&current.threadContext, &schedContext); //back to the scheduler
 	// YOUR CODE HERE
@@ -112,7 +117,11 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 int mypthread_mutex_init(mypthread_mutex_t *mutex,
                           const pthread_mutexattr_t *mutexattr) {
 	//initialize data structures for this mutex
-
+	*mutex = (mypthread_mutex_t){
+		.mutexId = mutexIdCounter,
+		.locked = 0,
+		.currentHolder = front(runQueue).tid
+	};
 	// YOUR CODE HERE
 	return 0;
 };
@@ -200,6 +209,7 @@ static void sched_stcf() {
 			tcb temp = dequeue(runQueue);
 			enqueue(runQueue, temp);
 		} 
+		runQueue->array[runQueue->front].status = RUNNING;
 		resumeTimer(); //back to action
 		swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
 	}
@@ -225,6 +235,7 @@ void swapToScheduler(){
 	// enqueue(runQueue, toSwap);
 	tcb current = front(runQueue);
 	current.quantumsElapsed = current.quantumsElapsed + 1;
+	current.status = READY;
 	swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext);
 }
 
