@@ -101,6 +101,7 @@ void enqueue(struct Queue* queue, tcb item);
 tcb dequeue(struct Queue* queue);
 tcb front(struct Queue* queue);
 tcb rear(struct Queue* queue);
+int checkCurrentTid();
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void

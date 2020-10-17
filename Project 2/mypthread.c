@@ -64,11 +64,11 @@ int mypthread_yield() {
 
 	tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
 	//I think we need to then swap context from this tcb context to the scheduler context, then all we do is enqueue this thread to the rear, since it is not terminating
-	swapcontext( &thread.threadContext, &schedContext );
 	thread.status = WAITING; //change status to waiting if it is in queue
-
 	//I think then we enqueue the tcb back into the queue
 	enqueue( runQueue, thread );
+	swapcontext( &thread.threadContext, &schedContext );
+
 	// YOUR CODE HERE
 	
 	return 0;
@@ -77,8 +77,11 @@ int mypthread_yield() {
 /* terminate a thread */
 void mypthread_exit(void *value_ptr) {
 	// Deallocated any dynamic memory created when starting this thread
-
 	// YOUR CODE HERE
+	//I guess the only time this happens is when the currently running thread calls this right?
+	free(front(runQueue).threadStack);
+	tcb finished = dequeue(runQueue);
+	swapcontext(&finished.threadContext, &schedContext);
 };
 
 
@@ -165,14 +168,6 @@ static void sched_stcf() {
 		int lowestQuantumTid = -1;
 		for(i = 1; i < runQueue->size; i++){
 			if(runQueue->array[i].quantumsElapsed < currentQuantumsElapsed){ //found one that has been running for less time
-				// currentId = runQueue->array[i].tid;
-				// tcb oldFront = front(runQueue);
-				// while(front(runQueue).tid != currentId){
-				// 	tcb temp = dequeue(runQueue);
-				// 	enqueue(runQueue, temp);
-				// }
-				// resumeTimer();
-				// swapcontext(&oldFront.threadContext, &runQueue->array[runQueue->front].threadContext);
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
 			}
@@ -181,10 +176,15 @@ static void sched_stcf() {
 		while(front(runQueue).tid != lowestQuantumTid){
 			tcb temp = dequeue(runQueue);
 			enqueue(runQueue, temp);
-		}
+		} //rotating runqueue until highest priority is in the running position
 		resumeTimer();
-		if(lowestQuantumTid == currentId) swapcontext(&schedContext, &oldFront.threadContext);
-		else swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
+		if(lowestQuantumTid == currentId){
+			swapcontext(&schedContext, &oldFront.threadContext);
+		}
+		else{
+			currentId = &runQueue->array[runQueue->front].tid;
+			swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
+		}
 	}
 	// YOUR CODE HERE
 }
@@ -206,8 +206,9 @@ void swapToScheduler(){
 	//swap the currently running thread's context (front of the queue) to scheduler context
 	// tcb toSwap = dequeue(runQueue);
 	// enqueue(runQueue, toSwap);
+	front(runQueue).quantumsElapsed = front(runQueue).quantumsElapsed + 1;
 	currentQuantumsElapsed = front(runQueue).quantumsElapsed;
-	currentId = front(runQueue).tid;
+	currentId = checkCurrentTid();
 	swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext);
 }
 
@@ -218,6 +219,10 @@ void pauseTimer(){
 
 void resumeTimer(){
 	setitimer(ITIMER_PROF, &timer, NULL);
+}
+
+int checkCurrentTid(){
+	return front(runQueue).tid;
 }
 
 void startup(){

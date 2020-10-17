@@ -13,7 +13,6 @@
 
 
 int main(int argc, char **argv) {
-
 	mypthread_t threadnum = 2;
     runQueue = createQueue(QUEUE_SIZE);
     mypthread_create(&threadnum, NULL, NULL, 0);
