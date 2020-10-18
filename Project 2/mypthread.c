@@ -21,7 +21,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
        // YOUR CODE HERE
 	   if(idCounter == 0) startup(); //initialize timer and scheduler context upon creation of first thread
 	   //initialize new thread
-		pauseTimer();
+		//pauseTimer();
 		tcb newThread;
 		newThread.tid = idCounter;
 		if(DEBUGMODE) printf("new thread with id %d created\n", idCounter);
@@ -41,16 +41,17 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		if(getcontext(&newThread.threadContext) < 0){
 			handle_error("thread context error");
 		}
-
+		//if(DEBUGMODE) printf("initializing thread context...\n");
 		newThread.threadContext.uc_stack.ss_sp = newThread.threadStack;
 		newThread.threadContext.uc_stack.ss_size = STACK_SIZE;
-		newThread.threadContext.uc_stack.ss_flags = 0; //this mgiht change, its how many arguments it takes i think
+		newThread.threadContext.uc_stack.ss_flags = 0; 
 		newThread.threadContext.uc_link = NULL;
 		makecontext(&newThread.threadContext, (void*)function, 1, arg);
-
+		//if(DEBUGMODE) printf("initialized thread context\n");
 		//insert TCB into queue, runqueue is in header file after queue typedef
 		enqueue(runQueue, newThread);
-		resumeTimer();
+		//if(DEBUGMODE) printf("enqueued thread %d\n", newThread.tid);
+		//resumeTimer();
     return 0;
 };
 
@@ -63,7 +64,7 @@ int mypthread_yield() {
 
 	//could possibly look at front of queue? if the front of the queue is the one that is running, but the one that is running might not be in the queue
 	//look at the front of the queue and dequeue it because the front of the queue is the current running thread, we then swap context to the scheduler
-	pauseTimer();
+	//pauseTimer();
 	tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
 	
 	//I think we need to then swap context from this tcb context to the scheduler context, then all we do is enqueue this thread to the rear, since it is not terminating
@@ -71,8 +72,8 @@ int mypthread_yield() {
 	//I think then we enqueue the tcb back into the queue
 	
 	enqueue( runQueue, thread );
-	if(DEBUGMODE) printf("%d yielding\n", thread.tid);
-	resumeTimer();
+	if(DEBUGMODE) printf("thread %d yielding\n", thread.tid);
+	//resumeTimer();
 	swapcontext( &thread.threadContext, &schedContext );
 
 	// YOUR CODE HERE
@@ -85,7 +86,7 @@ void mypthread_exit(void *value_ptr) {
 	// Deallocated any dynamic memory created when starting this thread
 	// YOUR CODE HERE
 	//I guess the only time this happens is when the currently running thread calls this right?
-	pauseTimer();
+	//pauseTimer();
 	tcb finished = dequeue(runQueue);
 	finished.status = DONE;
 	//check if any thread is waiting on it, if there is then tell it it's good to go
@@ -95,8 +96,8 @@ void mypthread_exit(void *value_ptr) {
 		waiter.status = READY;
 	}
 	free(finished.threadStack);
-	if(DEBUGMODE) printf("%d exiting\n", finished.tid);
-	resumeTimer();
+	if(DEBUGMODE) printf("thread %d exiting\n", finished.tid);
+	//resumeTimer();
 	//swapcontext(&finished.threadContext, &schedContext);
 	setcontext(&schedContext);
 };
@@ -106,15 +107,15 @@ void mypthread_exit(void *value_ptr) {
 int mypthread_join(mypthread_t thread, void **value_ptr) {
 	// wait for a specific thread to terminate
 	// de-allocate any dynamic memory created by the joining thread
-	pauseTimer();
-	tcb current = dequeue(runQueue);
+	//pauseTimer();
+	if(DEBUGMODE) printf("joining thread %d with thread %d\n", front(runQueue).tid, thread);
+	tcb current = front(runQueue);
 	tcb waitingOnThread = findThread(runQueue, thread);
 	current.waitingOn = waitingOnThread.tid;
 	waitingOnThread.beingWaitedOnBy = current.tid;
 	current.status = WAITING;
-	enqueue(runQueue, current); //put caller back into the runqueue
-	resumeTimer();
-	if(DEBUGMODE) printf("%d waiting on %d\n", current.tid, waitingOnThread.tid);
+	//resumeTimer();
+	if(DEBUGMODE) printf("thread %d now waiting on thread %d\n", current.tid, waitingOnThread.tid);
 	swapcontext(&current.threadContext, &schedContext); //back to the scheduler
 	// YOUR CODE HERE
 	return 0;
@@ -124,14 +125,15 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 int mypthread_mutex_init(mypthread_mutex_t *mutex,
                           const pthread_mutexattr_t *mutexattr) {
 	//initialize data structures for this mutex
-	pauseTimer();
+	//pauseTimer();
 	*mutex = (mypthread_mutex_t){
 		.mutexId = mutexIdCounter,
 		.lockState = UNLOCKED,
 		//.currentHolder = front(runQueue).tid
 	};
 	mutexIdCounter++;
-	resumeTimer();
+	if(DEBUGMODE) printf("created mutex %d\n", mutex->mutexId);
+	//resumeTimer();
 	// YOUR CODE HERE
 	return 0;
 };
@@ -142,19 +144,20 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
         // if the mutex is acquired successfully, enter the critical section
         // if acquiring mutex fails, push current thread into block list and //
         // context switch to the scheduler thread
-		pauseTimer();
+		//pauseTimer();
+		//if(DEBUGMODE) printf("locking mutex %d\n", mutex->mutexId);
 		while(__atomic_test_and_set((volatile void*)&mutex->lockState, __ATOMIC_RELAXED)){
 			tcb lockedOut = dequeue(runQueue);
 			lockedOut.waitingOnMutex = mutex->mutexId;
 			lockedOut.status = WAITING;
 			enqueue(runQueue, lockedOut);
-			resumeTimer();
+			//resumeTimer();
 			swapcontext(&lockedOut.threadContext, &schedContext);
 		}
 
 		//if thread made it past the while loop, it gets to use the mutex. lock it
 		if(mutex->lockState == UNLOCKED) mutex->lockState = LOCKED;
-		resumeTimer();
+		//resumeTimer();
         // YOUR CODE HERE
         return 0;
 };
@@ -164,7 +167,8 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
 	// Release mutex and make it available again.
 	// Put threads in block list to run queue
 	// so that they could compete for mutex later.
-	pauseTimer();
+	//pauseTimer();
+	//if(DEBUGMODE) printf("unlocking mutex %d\n", mutex->mutexId);
 	mutex->lockState = UNLOCKED;
 	int i, j;
 	for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){
@@ -174,7 +178,7 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
 			runQueue->array[i].status = READY;
 		}
 	}
-	resumeTimer();
+	//resumeTimer();
 	// YOUR CODE HERE
 	return 0;
 };
@@ -185,7 +189,8 @@ int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
 	// Deallocate dynamic memory created in mypthread_mutex_init
 	// i dont think we had to allocate any memory, 
 	//so i'll just release the lock and put all of the threads waiting on it back to ready mode
-	pauseTimer();
+	//pauseTimer();
+	if(DEBUGMODE) printf("destroying mutex %d\n", mutex->mutexId);
 	mutex->lockState = UNLOCKED;
 	int i, j;
 	for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){
@@ -195,7 +200,7 @@ int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
 			runQueue->array[i].status = READY;
 		}
 	}
-	resumeTimer();
+	//resumeTimer();
 	return 0;
 };
 
@@ -215,13 +220,15 @@ static void schedule() {
 
 	// YOUR CODE HERE
 	pauseTimer();
+	if(DEBUGMODE) printf("entering scheduler\n");
 
-// schedule policy
-#ifndef MLFQ
-	// Choose STCF
-#else
-	// Choose MLFQ
-#endif
+	//schedule policy
+	// #ifndef MLFQ
+	// 	// Choose STCF
+	// #else
+	// 	// Choose MLFQ
+	// #endif
+	sched_stcf();
 
 }
 
@@ -233,30 +240,35 @@ static void sched_stcf() {
 		int i, j;
 		int currentLowestQuantum;
 		int lowestQuantumTid;
-		//find a starter set of values that isnt waiting on another thread or a mutex
+		//find a starter set of values that isnt waiting on another thread or a mutex and isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
-			if(runQueue->array[i].waitingOn == -1 && runQueue->array[i].waitingOnMutex == -1){
+			if(runQueue->array[i].waitingOn == -1 && runQueue->array[i].waitingOnMutex == -1 &&
+			 runQueue->array[i].status != DONE){
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
 				break;
 			}
 		}
-		//find highest priority tcb (lowest runtime thus far) that isnt waiting on a thread
+		if(DEBUGMODE) printf("sched start point: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
+		//find highest priority tcb (lowest runtime thus far) that isnt waiting on a thread/mutex or isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
-			//look for a thread thats been running for less time, and isnt waiting on a thread/mutex
-			if(runQueue->array[i].quantumsElapsed < currentLowestQuantum && runQueue->array[i].waitingOn == -1 && runQueue->array[i].waitingOnMutex == -1){ 
+			if(runQueue->array[i].quantumsElapsed < currentLowestQuantum && runQueue->array[i].waitingOn == -1 &&
+			 runQueue->array[i].waitingOnMutex == -1 && runQueue->array[i].status != DONE){ 
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
 			}
 		}
+		if(DEBUGMODE) printf("next thread: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
 		//rotating runqueue until highest priority is in the running position
+		if(DEBUGMODE) printf("shifting thread %d to run position\n", lowestQuantumTid);
 		while(front(runQueue).tid != lowestQuantumTid){
 			tcb temp = dequeue(runQueue);
 			enqueue(runQueue, temp);
 		} 
 		runQueue->array[runQueue->front].status = RUNNING;
+		if(DEBUGMODE) printf("now running thread %d\n", front(runQueue).tid);
 		resumeTimer(); //back to action
 		swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
 	}
@@ -277,15 +289,16 @@ static void sched_mlfq() {
 void swapToScheduler(){
 	//pause timer
 	pauseTimer();
-	tcb current = front(runQueue);
-	current.quantumsElapsed = current.quantumsElapsed + 1;
-	current.status = READY;
+	if(DEBUGMODE) printf("time. thread %d has currently run for %d quantums\n", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
+	runQueue->array[runQueue->front].quantumsElapsed++;
+	runQueue->array[runQueue->front].status = READY;
+	if(DEBUGMODE) printf("thread %d has now run for %d quantums\n", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
 	swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext);
 }
 
 void pauseTimer(){
 	struct itimerval zero_timer = {0};
-    // setitimer(ITIMER_PROF, &zero_timer, &timer);
+    //setitimer(ITIMER_PROF, &zero_timer, &timer);
     setitimer(ITIMER_PROF, &zero_timer, NULL);
 }
 
@@ -294,6 +307,8 @@ void resumeTimer(){
 }
 
 void startup(){
+	//initialize queue
+	runQueue = createQueue(QUEUE_SIZE);
 	//setup timer for schedule
 	struct sigaction sa;
 	memset (&sa, 0, sizeof (sa));
@@ -320,6 +335,7 @@ void startup(){
 	schedContext.uc_link = NULL;
 	makecontext(&schedContext, (void*)schedule, 0);
 	//go
+	resumeTimer();
 }
 
 struct Queue* createQueue(unsigned cap)
@@ -369,7 +385,7 @@ void enqueue(struct Queue* queue, tcb item)//changed int item to mypthread_t ite
 		queue->rear = (queue->rear + 1) % queue->capacity;
 		queue->array[queue->rear] = item;
 		queue->size = queue->size + 1;
-		if(DEBUGMODE) printf("enqueued thread id %d\n", item.tid);
+		//if(DEBUGMODE) printf("enqueued thread %d, ", item.tid);
 	}
 }
 
@@ -383,7 +399,7 @@ tcb dequeue(struct Queue* queue)//changed return type from int to mypthread_t
 	//int item = queue->array[queue->front];
 	//mypthread_t item = queue->array[queue->front];
 	tcb item = queue->array[queue->front];
-	if(DEBUGMODE) printf("dequeued thread id %d\n", item.tid);
+	//if(DEBUGMODE) printf("dequeued thread %d, ", item.tid);
 	queue->front = (queue->front + 1) % queue->capacity;
 	queue->size = queue->size - 1;
 	return item;
@@ -422,6 +438,6 @@ tcb findThread(struct Queue* queue, int targetTid){
 		if(i == queue->capacity) i = 0;
 		if(queue->array[i].tid == targetTid) return queue->array[i];
 	}
-	tcb nullreturn = {0};
+	tcb nullreturn = {.tid = -563342};
 	return nullreturn;
 }

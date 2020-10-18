@@ -26,8 +26,8 @@
 #include <string.h>
 
 #define STACK_SIZE SIGSTKSZ
-#define QUEUE_SIZE 10
-#define QUANTUM 20 //milliseconds
+#define QUEUE_SIZE 125
+#define QUANTUM 5 //milliseconds
 #define handle_error(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
@@ -139,6 +139,8 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex);
 
 /* destroy the mutex */
 int mypthread_mutex_destroy(mypthread_mutex_t *mutex);
+
+static void sched_stcf();
 
 #ifdef USE_MYTHREAD
 #define pthread_t mypthread_t
