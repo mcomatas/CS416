@@ -87,13 +87,16 @@ int main(int argc, char **argv) {
 
 	memset(&pSum, 0, R_SIZE*sizeof(int));
 	// mutex init
+	printf("1\n");
 	pthread_mutex_init(&mutex, NULL);
+	
 
 	struct timespec start, end;
         clock_gettime(CLOCK_REALTIME, &start);
+	printf("2\n");
 	for (i = 0; i < thread_num; ++i)
 		pthread_create(&thread[i], NULL, &parallel_calculate, &counter[i]);
-
+	printf("3\n");
 	for (i = 0; i < thread_num; ++i)
 		pthread_join(thread[i], NULL);
 

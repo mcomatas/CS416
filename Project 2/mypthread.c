@@ -30,7 +30,6 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		newThread.waitingOn = -1;
 		newThread.beingWaitedOnBy = -1;
 		newThread.waitingOnMutex = -1;
-		if(idCounter == 0) newThread.status = START; 
 
 		idCounter++;
 
@@ -72,6 +71,7 @@ int mypthread_yield() {
 	//I think then we enqueue the tcb back into the queue
 	
 	enqueue( runQueue, thread );
+	if(DEBUGMODE) printf("%d yielding\n", thread.tid);
 	resumeTimer();
 	swapcontext( &thread.threadContext, &schedContext );
 
@@ -95,8 +95,9 @@ void mypthread_exit(void *value_ptr) {
 		waiter.status = READY;
 	}
 	free(finished.threadStack);
-	//swapcontext(&finished.threadContext, &schedContext);
+	if(DEBUGMODE) printf("%d exiting\n", finished.tid);
 	resumeTimer();
+	//swapcontext(&finished.threadContext, &schedContext);
 	setcontext(&schedContext);
 };
 
@@ -113,6 +114,7 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 	current.status = WAITING;
 	enqueue(runQueue, current); //put caller back into the runqueue
 	resumeTimer();
+	if(DEBUGMODE) printf("%d waiting on %d\n", current.tid, waitingOnThread.tid);
 	swapcontext(&current.threadContext, &schedContext); //back to the scheduler
 	// YOUR CODE HERE
 	return 0;
@@ -126,7 +128,7 @@ int mypthread_mutex_init(mypthread_mutex_t *mutex,
 	*mutex = (mypthread_mutex_t){
 		.mutexId = mutexIdCounter,
 		.lockState = UNLOCKED,
-		.currentHolder = front(runQueue).tid
+		//.currentHolder = front(runQueue).tid
 	};
 	mutexIdCounter++;
 	resumeTimer();
@@ -303,7 +305,6 @@ void startup(){
 	//set up current timer
 	timer.it_value.tv_usec = QUANTUM * 1000;
 	timer.it_value.tv_sec = 0;
-    setitimer(ITIMER_PROF, &timer, NULL);
 
 	//set up scheduler context
 	void* schedulerStack = malloc(STACK_SIZE);
@@ -318,6 +319,7 @@ void startup(){
 	schedContext.uc_stack.ss_flags = 0;
 	schedContext.uc_link = NULL;
 	makecontext(&schedContext, (void*)schedule, 0);
+	//go
 }
 
 struct Queue* createQueue(unsigned cap)

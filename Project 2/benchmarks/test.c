@@ -10,44 +10,37 @@
  * You can modify and use this program as much as possible.
  * This will not be graded.
  */
+struct itimerval timer;
+pthread_mutex_t   mutex;
 
 void printQueueTids(struct Queue* queue);
-
+void ring();
+void pauseTimer();
+void resumeTimer();
 
 int main(int argc, char **argv) {
-	mypthread_t threadnum = 2;
-    tcb thing;
-
-    runQueue = createQueue(QUEUE_SIZE);
-    mypthread_create(&threadnum, NULL, NULL, 0);
-    mypthread_create(&threadnum, NULL, NULL, 0);
-    mypthread_create(&threadnum, NULL, NULL, 0);
-    printf("queue size: %d\n", runQueue->size);
-
-    printQueueTids(runQueue);
-
-    thing = dequeue(runQueue);
-    thing = dequeue(runQueue);
-    thing = dequeue(runQueue);
-    printf("queue size: %d\n", runQueue->size);
-
-    printQueueTids(runQueue);
-
-    mypthread_create(&threadnum, NULL, NULL, 0);
-    printf("queue size: %d\n", runQueue->size);
-
-    printQueueTids(runQueue);
-
-
+	pthread_mutex_init(&mutex, NULL);
+    printf("managed to finish\n");
 	return 0;
 }
 
+ring(){
+    pauseTimer();
+    int i = 0;
+    while(i < 999){
+        printf("%d", i);
+        i++;
+    }
+    printf("done");
+}
+
 void printQueueTids(struct Queue* queue){
-    int i;
-    for(i = 0; i < runQueue->size; i++){
+    int i, j;
+    for(i = queue->front, j = 0; i <= runQueue->rear, j < queue->size; i++, j++){
+        if(i == queue->capacity) i = 0;
         if(runQueue->array[i].waitingOn != -1){
             break;
         }
-        printf("tid in array %d: %d \n", runQueue->array[i].tid);
+        printf("tid in array %d: %d \n", i, runQueue->array[i].tid);
     }
 }
