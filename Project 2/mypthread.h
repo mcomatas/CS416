@@ -112,7 +112,7 @@ void enqueue(struct Queue* queue, tcb item);
 tcb dequeue(struct Queue* queue);
 tcb front(struct Queue* queue);
 tcb rear(struct Queue* queue);
-tcb findThread(struct Queue* queue, int targetTid);
+int findThread(struct Queue* queue, int targetTid);
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void

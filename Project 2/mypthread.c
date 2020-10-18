@@ -30,7 +30,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		newThread.waitingOn = -1;
 		newThread.beingWaitedOnBy = -1;
 		newThread.waitingOnMutex = -1;
-
+		*thread = idCounter;
 		idCounter++;
 
 		newThread.threadStack = malloc(SIGSTKSZ);
@@ -61,16 +61,9 @@ int mypthread_yield() {
 	// change thread state from Running to Ready
 	// save context of this thread to its thread control block
 	// switch from thread context to scheduler context
-
-	//could possibly look at front of queue? if the front of the queue is the one that is running, but the one that is running might not be in the queue
-	//look at the front of the queue and dequeue it because the front of the queue is the current running thread, we then swap context to the scheduler
 	//pauseTimer();
+	runQueue->array[runQueue->front].status = READY;
 	tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
-	
-	//I think we need to then swap context from this tcb context to the scheduler context, then all we do is enqueue this thread to the rear, since it is not terminating
-	thread.status = READY; //change status to ready
-	//I think then we enqueue the tcb back into the queue
-	
 	enqueue( runQueue, thread );
 	if(DEBUGMODE) printf("thread %d yielding\n", thread.tid);
 	//resumeTimer();
@@ -85,15 +78,16 @@ int mypthread_yield() {
 void mypthread_exit(void *value_ptr) {
 	// Deallocated any dynamic memory created when starting this thread
 	// YOUR CODE HERE
-	//I guess the only time this happens is when the currently running thread calls this right?
 	//pauseTimer();
 	tcb finished = dequeue(runQueue);
 	finished.status = DONE;
 	//check if any thread is waiting on it, if there is then tell it it's good to go
 	if(finished.beingWaitedOnBy != -1){
-		tcb waiter = findThread(runQueue, finished.beingWaitedOnBy);
-		waiter.waitingOn = -1;
-		waiter.status = READY;
+		int waiterIndex = findThread(runQueue, finished.beingWaitedOnBy);
+		if(waiterIndex != -342){
+			runQueue->array[waiterIndex].waitingOn = -1;
+			runQueue->array[waiterIndex].status = READY;
+		}
 	}
 	free(finished.threadStack);
 	if(DEBUGMODE) printf("thread %d exiting\n", finished.tid);
@@ -109,14 +103,13 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 	// de-allocate any dynamic memory created by the joining thread
 	//pauseTimer();
 	if(DEBUGMODE) printf("joining thread %d with thread %d\n", front(runQueue).tid, thread);
-	tcb current = front(runQueue);
-	tcb waitingOnThread = findThread(runQueue, thread);
-	current.waitingOn = waitingOnThread.tid;
-	waitingOnThread.beingWaitedOnBy = current.tid;
-	current.status = WAITING;
+	int waitingOnThreadIndex = findThread(runQueue, thread);
+	runQueue->array[runQueue->front].waitingOn = runQueue->array[waitingOnThreadIndex].tid;
+	runQueue->array[waitingOnThreadIndex].beingWaitedOnBy = runQueue->array[runQueue->front].tid;
+	runQueue->array[runQueue->front].status = WAITING;
 	//resumeTimer();
-	if(DEBUGMODE) printf("thread %d now waiting on thread %d\n", current.tid, waitingOnThread.tid);
-	swapcontext(&current.threadContext, &schedContext); //back to the scheduler
+	if(DEBUGMODE) printf("thread %d now waiting on thread %d\n", runQueue->array[runQueue->front].tid, runQueue->array[waitingOnThreadIndex].tid);
+	swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext); //back to the scheduler
 	// YOUR CODE HERE
 	return 0;
 };
@@ -229,7 +222,6 @@ static void schedule() {
 	// 	// Choose MLFQ
 	// #endif
 	sched_stcf();
-
 }
 
 /* Preemptive SJF (STCF) scheduling algorithm */
@@ -238,8 +230,8 @@ static void sched_stcf() {
 	// (feel free to modify arguments and return types)
 	while(1){
 		int i, j;
-		int currentLowestQuantum;
-		int lowestQuantumTid;
+		int currentLowestQuantum = -1;
+		int lowestQuantumTid = -1;
 		//find a starter set of values that isnt waiting on another thread or a mutex and isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
@@ -250,6 +242,7 @@ static void sched_stcf() {
 				break;
 			}
 		}
+
 		if(DEBUGMODE) printf("sched start point: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
 		//find highest priority tcb (lowest runtime thus far) that isnt waiting on a thread/mutex or isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
@@ -289,7 +282,7 @@ static void sched_mlfq() {
 void swapToScheduler(){
 	//pause timer
 	pauseTimer();
-	if(DEBUGMODE) printf("time. thread %d has currently run for %d quantums\n", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
+	if(DEBUGMODE) printf("time. thread %d has currently run for %d quantums; ", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
 	runQueue->array[runQueue->front].quantumsElapsed++;
 	runQueue->array[runQueue->front].status = READY;
 	if(DEBUGMODE) printf("thread %d has now run for %d quantums\n", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
@@ -432,12 +425,11 @@ tcb rear(struct Queue* queue)
 	
 }
 
-tcb findThread(struct Queue* queue, int targetTid){
+int findThread(struct Queue* queue, int targetTid){
 	int i, j;
 	for(i = queue->front, j = 0; j < queue->size; i++, j++){
 		if(i == queue->capacity) i = 0;
-		if(queue->array[i].tid == targetTid) return queue->array[i];
+		if(queue->array[i].tid == targetTid) return i;
 	}
-	tcb nullreturn = {.tid = -563342};
-	return nullreturn;
+	return -342;
 }
