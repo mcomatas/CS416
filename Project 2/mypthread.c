@@ -21,7 +21,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
        // YOUR CODE HERE
 	   if(idCounter == 0) startup(); //initialize timer and scheduler context upon creation of first thread
 	   //initialize new thread
-
+		pauseTimer();
 		tcb newThread;
 		newThread.tid = idCounter;
 		if(DEBUGMODE) printf("new thread with id %d created\n", idCounter);
@@ -51,7 +51,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 
 		//insert TCB into queue, runqueue is in header file after queue typedef
 		enqueue(runQueue, newThread);
-
+		resumeTimer();
     return 0;
 };
 
@@ -64,7 +64,7 @@ int mypthread_yield() {
 
 	//could possibly look at front of queue? if the front of the queue is the one that is running, but the one that is running might not be in the queue
 	//look at the front of the queue and dequeue it because the front of the queue is the current running thread, we then swap context to the scheduler
-
+	pauseTimer();
 	tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
 	
 	//I think we need to then swap context from this tcb context to the scheduler context, then all we do is enqueue this thread to the rear, since it is not terminating
@@ -72,7 +72,7 @@ int mypthread_yield() {
 	//I think then we enqueue the tcb back into the queue
 	
 	enqueue( runQueue, thread );
-	
+	resumeTimer();
 	swapcontext( &thread.threadContext, &schedContext );
 
 	// YOUR CODE HERE
@@ -85,6 +85,7 @@ void mypthread_exit(void *value_ptr) {
 	// Deallocated any dynamic memory created when starting this thread
 	// YOUR CODE HERE
 	//I guess the only time this happens is when the currently running thread calls this right?
+	pauseTimer();
 	tcb finished = dequeue(runQueue);
 	finished.status = DONE;
 	//check if any thread is waiting on it, if there is then tell it it's good to go
@@ -95,6 +96,7 @@ void mypthread_exit(void *value_ptr) {
 	}
 	free(finished.threadStack);
 	//swapcontext(&finished.threadContext, &schedContext);
+	resumeTimer();
 	setcontext(&schedContext);
 };
 
@@ -103,12 +105,14 @@ void mypthread_exit(void *value_ptr) {
 int mypthread_join(mypthread_t thread, void **value_ptr) {
 	// wait for a specific thread to terminate
 	// de-allocate any dynamic memory created by the joining thread
+	pauseTimer();
 	tcb current = dequeue(runQueue);
 	tcb waitingOnThread = findThread(runQueue, thread);
 	current.waitingOn = waitingOnThread.tid;
 	waitingOnThread.beingWaitedOnBy = current.tid;
 	current.status = WAITING;
 	enqueue(runQueue, current); //put caller back into the runqueue
+	resumeTimer();
 	swapcontext(&current.threadContext, &schedContext); //back to the scheduler
 	// YOUR CODE HERE
 	return 0;
@@ -118,12 +122,14 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 int mypthread_mutex_init(mypthread_mutex_t *mutex,
                           const pthread_mutexattr_t *mutexattr) {
 	//initialize data structures for this mutex
+	pauseTimer();
 	*mutex = (mypthread_mutex_t){
 		.mutexId = mutexIdCounter,
 		.lockState = UNLOCKED,
 		.currentHolder = front(runQueue).tid
 	};
 	mutexIdCounter++;
+	resumeTimer();
 	// YOUR CODE HERE
 	return 0;
 };
@@ -134,8 +140,19 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
         // if the mutex is acquired successfully, enter the critical section
         // if acquiring mutex fails, push current thread into block list and //
         // context switch to the scheduler thread
+		pauseTimer();
+		while(__atomic_test_and_set((volatile void*)&mutex->lockState, __ATOMIC_RELAXED)){
+			tcb lockedOut = dequeue(runQueue);
+			lockedOut.waitingOnMutex = mutex->mutexId;
+			lockedOut.status = WAITING;
+			enqueue(runQueue, lockedOut);
+			resumeTimer();
+			swapcontext(&lockedOut.threadContext, &schedContext);
+		}
 
-
+		//if thread made it past the while loop, it gets to use the mutex. lock it
+		if(mutex->lockState == UNLOCKED) mutex->lockState = LOCKED;
+		resumeTimer();
         // YOUR CODE HERE
         return 0;
 };
@@ -145,6 +162,7 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
 	// Release mutex and make it available again.
 	// Put threads in block list to run queue
 	// so that they could compete for mutex later.
+	pauseTimer();
 	mutex->lockState = UNLOCKED;
 	int i, j;
 	for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){
@@ -154,6 +172,7 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex) {
 			runQueue->array[i].status = READY;
 		}
 	}
+	resumeTimer();
 	// YOUR CODE HERE
 	return 0;
 };
@@ -164,8 +183,17 @@ int mypthread_mutex_destroy(mypthread_mutex_t *mutex) {
 	// Deallocate dynamic memory created in mypthread_mutex_init
 	// i dont think we had to allocate any memory, 
 	//so i'll just release the lock and put all of the threads waiting on it back to ready mode
+	pauseTimer();
 	mutex->lockState = UNLOCKED;
-
+	int i, j;
+	for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){
+		if(i == runQueue->capacity) i = 0;
+		if(runQueue->array[i].waitingOnMutex == mutex->mutexId){
+			runQueue->array[i].waitingOnMutex = -1;
+			runQueue->array[i].status = READY;
+		}
+	}
+	resumeTimer();
 	return 0;
 };
 
