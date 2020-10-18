@@ -10,6 +10,7 @@
 // YOUR CODE HERE
 int idCounter = 0;
 int mutexIdCounter = 0;
+int justExited = 0;
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
@@ -19,7 +20,22 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
        // allocate space of stack for this thread to run
        // after everything is all set, push this thread int
        // YOUR CODE HERE
-	   if(idCounter == 0) startup(); //initialize timer and scheduler context upon creation of first thread
+	   if(idCounter == 0) {
+		   	runQueue = createQueue(QUEUE_SIZE);
+			//setup timer for schedule
+			struct sigaction sa;
+			memset (&sa, 0, sizeof (sa));
+			sa.sa_handler = &swapToScheduler; //what function is called when timer signal happens
+			sigaction (SIGPROF, &sa, NULL);
+			//when does the timer reset
+			timer.it_interval.tv_usec = QUANTUM * 1000; //1000 microsecs = 1 ms
+			timer.it_interval.tv_sec = 0;
+			//set up current timer
+			timer.it_value.tv_usec = QUANTUM * 1000;
+			timer.it_value.tv_sec = 0;
+			setitimer(ITIMER_PROF, &timer, NULL);
+	   } //initialize timer and scheduler context upon creation of first thread
+
 	   //initialize new thread
 		//pauseTimer();
 		tcb newThread;
@@ -57,17 +73,19 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 
 /* give CPU possession to other user-level threads voluntarily */
 int mypthread_yield() {
-
 	// change thread state from Running to Ready
 	// save context of this thread to its thread control block
 	// switch from thread context to scheduler context
 	//pauseTimer();
 	runQueue->array[runQueue->front].status = READY;
-	tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
-	enqueue( runQueue, thread );
-	if(DEBUGMODE) printf("thread %d yielding\n", thread.tid);
+	// tcb thread = dequeue( runQueue ); //get the front of the queue aka the current running thread
+	// enqueue( runQueue, thread );
+	if(DEBUGMODE) printf("thread %d yielding\n", runQueue->array[runQueue->front].tid);
 	//resumeTimer();
-	swapcontext( &thread.threadContext, &schedContext );
+	
+	//swapcontext( &thread.threadContext, &schedContext );
+	justExited = 0;
+	schedule();
 
 	// YOUR CODE HERE
 	
@@ -93,7 +111,9 @@ void mypthread_exit(void *value_ptr) {
 	if(DEBUGMODE) printf("thread %d exiting\n", finished.tid);
 	//resumeTimer();
 	//swapcontext(&finished.threadContext, &schedContext);
-	setcontext(&schedContext);
+	//setcontext(&schedContext);
+	justExited = 1;
+	schedule();
 };
 
 
@@ -109,8 +129,9 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 	runQueue->array[runQueue->front].status = WAITING;
 	//resumeTimer();
 	if(DEBUGMODE) printf("thread %d now waiting on thread %d\n", runQueue->array[runQueue->front].tid, runQueue->array[waitingOnThreadIndex].tid);
-	swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext); //back to the scheduler
-	// YOUR CODE HERE
+	//swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext); //back to the scheduler
+	justExited = 0;
+	schedule();
 	return 0;
 };
 
@@ -140,12 +161,11 @@ int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
 		//pauseTimer();
 		//if(DEBUGMODE) printf("locking mutex %d\n", mutex->mutexId);
 		while(__atomic_test_and_set((volatile void*)&mutex->lockState, __ATOMIC_RELAXED)){
-			tcb lockedOut = dequeue(runQueue);
-			lockedOut.waitingOnMutex = mutex->mutexId;
-			lockedOut.status = WAITING;
-			enqueue(runQueue, lockedOut);
-			//resumeTimer();
-			swapcontext(&lockedOut.threadContext, &schedContext);
+			runQueue->array[runQueue->front].waitingOnMutex = mutex->mutexId;
+			runQueue->array[runQueue->front].status = WAITING;
+			//swapcontext(&lockedOut.threadContext, &schedContext);
+			justExited = 0;
+			schedule();
 		}
 
 		//if thread made it past the while loop, it gets to use the mutex. lock it
@@ -228,10 +248,11 @@ static void schedule() {
 static void sched_stcf() {
 	// Your own implementation of STCF
 	// (feel free to modify arguments and return types)
-	while(1){
+	//while(1){
 		int i, j;
 		int currentLowestQuantum = -1;
 		int lowestQuantumTid = -1;
+		int indexOldFront = findThread(runQueue, runQueue->array[runQueue->front].tid);
 		//find a starter set of values that isnt waiting on another thread or a mutex and isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
@@ -242,7 +263,7 @@ static void sched_stcf() {
 				break;
 			}
 		}
-
+		if(currentLowestQuantum == -1) while(1); //nothing
 		if(DEBUGMODE) printf("sched start point: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
 		//find highest priority tcb (lowest runtime thus far) that isnt waiting on a thread/mutex or isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
@@ -263,8 +284,10 @@ static void sched_stcf() {
 		runQueue->array[runQueue->front].status = RUNNING;
 		if(DEBUGMODE) printf("now running thread %d\n", front(runQueue).tid);
 		resumeTimer(); //back to action
-		swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
-	}
+		//swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
+		if(justExited == 1 && lowestQuantumTid > 0) setcontext(&runQueue->array[runQueue->front].threadContext);
+		else if(justExited == 0 && lowestQuantumTid > 0) swapcontext(&runQueue->array[indexOldFront].threadContext, &runQueue->array[runQueue->front].threadContext);
+	//}
 	// YOUR CODE HERE
 }
 
@@ -286,7 +309,9 @@ void swapToScheduler(){
 	runQueue->array[runQueue->front].quantumsElapsed++;
 	runQueue->array[runQueue->front].status = READY;
 	if(DEBUGMODE) printf("thread %d has now run for %d quantums\n", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
-	swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext);
+	//swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext);
+	justExited = 0;
+	schedule();
 }
 
 void pauseTimer(){
@@ -297,38 +322,6 @@ void pauseTimer(){
 
 void resumeTimer(){
 	setitimer(ITIMER_PROF, &timer, NULL);
-}
-
-void startup(){
-	//initialize queue
-	runQueue = createQueue(QUEUE_SIZE);
-	//setup timer for schedule
-	struct sigaction sa;
-	memset (&sa, 0, sizeof (sa));
-	sa.sa_handler = &swapToScheduler; //what function is called when timer signal happens
-	sigaction (SIGPROF, &sa, NULL);
-	//when does the timer reset
-	timer.it_interval.tv_usec = QUANTUM * 1000; //1000 microsecs = 1 ms
-	timer.it_interval.tv_sec = 0;
-	//set up current timer
-	timer.it_value.tv_usec = QUANTUM * 1000;
-	timer.it_value.tv_sec = 0;
-
-	//set up scheduler context
-	void* schedulerStack = malloc(STACK_SIZE);
-	if(schedulerStack == NULL){
-		handle_error("bad scheduler malloc");
-	}
-	if(getcontext(&schedContext) < 0){
-		handle_error("getcontext schedContext error");	
-	}
-	schedContext.uc_stack.ss_sp = schedulerStack;
-	schedContext.uc_stack.ss_size = STACK_SIZE;
-	schedContext.uc_stack.ss_flags = 0;
-	schedContext.uc_link = NULL;
-	makecontext(&schedContext, (void*)schedule, 0);
-	//go
-	resumeTimer();
 }
 
 struct Queue* createQueue(unsigned cap)

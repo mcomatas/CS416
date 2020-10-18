@@ -100,7 +100,6 @@ static ucontext_t schedContext;
 struct itimerval timer;
 
 /* Function Declarations: */
-void startup();
 void swapToScheduler();
 void pauseTimer();
 void resumeTimer();
@@ -141,6 +140,7 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex);
 int mypthread_mutex_destroy(mypthread_mutex_t *mutex);
 
 static void sched_stcf();
+static void schedule();
 
 #ifdef USE_MYTHREAD
 #define pthread_t mypthread_t
