@@ -8,9 +8,10 @@
 
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
-int idCounter = 0;
+mypthread_t idCounter = 0;
 int mutexIdCounter = 0;
 int justExited = 0;
+int mainInit = 0;
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
@@ -22,6 +23,18 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
        // YOUR CODE HERE
 	   if(idCounter == 0) {
 		   	runQueue = createQueue(QUEUE_SIZE);
+
+			//create main thread tcb
+			tcb mainThread;
+			mainThread.tid = idCounter;
+			mainThread.status = READY;
+			mainThread.quantumsElapsed = 0;
+			mainThread.waitingOn = -1;
+			mainThread.beingWaitedOnBy = -1;
+			mainThread.waitingOnMutex = -1;
+			idCounter++;
+			enqueue(runQueue, mainThread);
+
 			//setup timer for schedule
 			struct sigaction sa;
 			memset (&sa, 0, sizeof (sa));
@@ -48,7 +61,6 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		newThread.waitingOnMutex = -1;
 		*thread = idCounter;
 		idCounter++;
-
 		newThread.threadStack = malloc(SIGSTKSZ);
 		if(newThread.threadStack == NULL){
 			handle_error("threadStack malloc error");
@@ -57,17 +69,18 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		if(getcontext(&newThread.threadContext) < 0){
 			handle_error("thread context error");
 		}
-		//if(DEBUGMODE) printf("initializing thread context...\n");
 		newThread.threadContext.uc_stack.ss_sp = newThread.threadStack;
 		newThread.threadContext.uc_stack.ss_size = STACK_SIZE;
 		newThread.threadContext.uc_stack.ss_flags = 0; 
 		newThread.threadContext.uc_link = NULL;
 		makecontext(&newThread.threadContext, (void*)function, 1, arg);
-		//if(DEBUGMODE) printf("initialized thread context\n");
 		//insert TCB into queue, runqueue is in header file after queue typedef
 		enqueue(runQueue, newThread);
-		//if(DEBUGMODE) printf("enqueued thread %d\n", newThread.tid);
-		//resumeTimer();
+		if(mainInit == 0){
+			getcontext(&runQueue->array[runQueue->front].threadContext);
+			mainInit = 69;
+		}
+
     return 0;
 };
 
@@ -103,6 +116,7 @@ void mypthread_exit(void *value_ptr) {
 	if(finished.beingWaitedOnBy != -1){
 		int waiterIndex = findThread(runQueue, finished.beingWaitedOnBy);
 		if(waiterIndex != -342){
+			if(DEBUGMODE) printf("thread %d exiting, thread %d can now run: ", finished.tid, runQueue->array[waiterIndex].tid);
 			runQueue->array[waiterIndex].waitingOn = -1;
 			runQueue->array[waiterIndex].status = READY;
 		}
@@ -128,6 +142,8 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 	runQueue->array[waitingOnThreadIndex].beingWaitedOnBy = runQueue->array[runQueue->front].tid;
 	runQueue->array[runQueue->front].status = WAITING;
 	//resumeTimer();
+	ucontext_t currentctx;
+	getcontext(&currentctx);
 	if(DEBUGMODE) printf("thread %d now waiting on thread %d\n", runQueue->array[runQueue->front].tid, runQueue->array[waitingOnThreadIndex].tid);
 	//swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext); //back to the scheduler
 	justExited = 0;
@@ -233,7 +249,7 @@ static void schedule() {
 
 	// YOUR CODE HERE
 	pauseTimer();
-	if(DEBUGMODE) printf("entering scheduler\n");
+	//if(DEBUGMODE) printf("entering scheduler\n");
 
 	//schedule policy
 	// #ifndef MLFQ
@@ -263,8 +279,8 @@ static void sched_stcf() {
 				break;
 			}
 		}
-		if(currentLowestQuantum == -1) while(1); //nothing
-		if(DEBUGMODE) printf("sched start point: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
+		if(currentLowestQuantum == -1) printf("nothing to run\n"); //nothing
+		//if(DEBUGMODE) printf("sched start point: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
 		//find highest priority tcb (lowest runtime thus far) that isnt waiting on a thread/mutex or isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
@@ -274,19 +290,19 @@ static void sched_stcf() {
 				lowestQuantumTid = runQueue->array[i].tid;
 			}
 		}
-		if(DEBUGMODE) printf("next thread: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
+		//if(DEBUGMODE) printf("next thread: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
 		//rotating runqueue until highest priority is in the running position
-		if(DEBUGMODE) printf("shifting thread %d to run position\n", lowestQuantumTid);
+		//if(DEBUGMODE) printf("shifting thread %d to run position\n", lowestQuantumTid);
 		while(front(runQueue).tid != lowestQuantumTid){
 			tcb temp = dequeue(runQueue);
 			enqueue(runQueue, temp);
 		} 
 		runQueue->array[runQueue->front].status = RUNNING;
-		if(DEBUGMODE) printf("now running thread %d\n", front(runQueue).tid);
+		if(DEBUGMODE && front(runQueue).tid == 0) printf("now running thread %d\n", front(runQueue).tid);
 		resumeTimer(); //back to action
 		//swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
-		if(justExited == 1 && lowestQuantumTid > 0) setcontext(&runQueue->array[runQueue->front].threadContext);
-		else if(justExited == 0 && lowestQuantumTid > 0) swapcontext(&runQueue->array[indexOldFront].threadContext, &runQueue->array[runQueue->front].threadContext);
+		if(justExited == 1 && lowestQuantumTid > -1) setcontext(&runQueue->array[runQueue->front].threadContext);
+		else if(justExited == 0 && lowestQuantumTid > -1) swapcontext(&runQueue->array[indexOldFront].threadContext, &runQueue->array[runQueue->front].threadContext);
 	//}
 	// YOUR CODE HERE
 }
@@ -305,10 +321,10 @@ static void sched_mlfq() {
 void swapToScheduler(){
 	//pause timer
 	pauseTimer();
-	if(DEBUGMODE) printf("time. thread %d has currently run for %d quantums; ", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
+	//if(DEBUGMODE) printf("time. thread %d has currently run for %d quantums; ", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
 	runQueue->array[runQueue->front].quantumsElapsed++;
 	runQueue->array[runQueue->front].status = READY;
-	if(DEBUGMODE) printf("thread %d has now run for %d quantums\n", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
+	//if(DEBUGMODE) printf("thread %d has now run for %d quantums\n", runQueue->array[runQueue->front].tid, runQueue->array[runQueue->front].quantumsElapsed);
 	//swapcontext(&runQueue->array[runQueue->front].threadContext, &schedContext);
 	justExited = 0;
 	schedule();

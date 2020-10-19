@@ -113,6 +113,6 @@ int main(int argc, char **argv) {
 	
 	for (i = 0; i < R_SIZE; ++i)
 		free(a[i]);
-
+	printf("MADE IT\n");
 	return 0;
 }

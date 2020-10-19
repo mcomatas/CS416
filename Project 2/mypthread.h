@@ -38,35 +38,26 @@ enum my_pthread_state {
 	BLOCKED, // 1
 	DEAD // 2 */
 
-	READY, // 0
-	START, // 1
-	RUNNING, // 2
-	WAITING, // 3
-	DONE // 4
+	READY = 0, // 0
+	START = 1, // 1
+	RUNNING = 2, // 2
+	WAITING = 3, // 3
+	DONE = 4 // 4
 };
 
 enum mutexState {
-	UNLOCKED, //0
-	LOCKED //1
+	UNLOCKED = 0, //0
+	LOCKED = 1 //1
 };
 
 typedef struct threadControlBlock {
-	/* add important states in a thread control block */
-	// thread Id
-	// thread status
-	// thread context
-	// thread stack
-	// thread priority
-	// And more ...
-
 	// YOUR CODE HERE
-	int tid; // thread id
+	mypthread_t tid; // thread id
 	int waitingOn; //tid of thread it is waiting on (thread join)
 	int beingWaitedOnBy; //tid of thread it is being waited on by (thread join)
 	int waitingOnMutex; //mutexid of mutex it is waiting to be unlocked
 	enum my_pthread_state status;
 	int quantumsElapsed; //lower quantums elapsed = higher priority for scheduler
-	//enum thread_priority priority; // I'm thinking the lower the int the higher priority?
 	void* threadStack;
 	ucontext_t threadContext;
 	
@@ -74,29 +65,22 @@ typedef struct threadControlBlock {
 
 /* mutex struct definition */
 typedef struct mypthread_mutex_t {
-	/* add something here */
-	// YOUR CODE HERE
 	int mutexId;
 	int lockState;
 	int currentHolder; //thread id of current thread using mutex
 } mypthread_mutex_t;
 
 /* define your data structures here: */
-// Feel free to add your own auxiliary data structures (linked list or queue etc...)
-
-// YOUR CODE HERE
 
 // queue data structure here for run queue
 typedef struct Queue
 {
 	int front, rear, size; //using queue of ints for now to set up data structure, this is ok to keep int because they are indexs of what is the front and rear
 	unsigned capacity;
-	//int* array;
 	tcb* array; //change this from int array to mypthread_t array
 } queue;
 
 queue* runQueue; //runqueue
-static ucontext_t schedContext;
 struct itimerval timer;
 
 /* Function Declarations: */
