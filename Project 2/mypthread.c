@@ -267,16 +267,16 @@ static void sched_stcf() {
 	//while(1){
 		int i, j;
 		int currentLowestQuantum = -1;
-		int lowestQuantumTid = -1;
+		int lowestQuantumTid = 1000000;
 		int indexOldFront = findThread(runQueue, runQueue->array[runQueue->front].tid);
 		//find a starter set of values that isnt waiting on another thread or a mutex and isnt a leftover done
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
 			if(runQueue->array[i].waitingOn == -1 && runQueue->array[i].waitingOnMutex == -1 &&
-			 runQueue->array[i].status != DONE){
+			 runQueue->array[i].status != DONE && runQueue->array[i].tid < lowestQuantumTid){
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
-				break;
+				//break;
 			}
 		}
 		if(currentLowestQuantum == -1) printf("nothing to run\n"); //nothing
@@ -285,11 +285,13 @@ static void sched_stcf() {
 		for(i = runQueue->front, j = 0; j < runQueue->size; i++, j++){ 
 			if(i == runQueue->capacity) i = 0;
 			if(runQueue->array[i].quantumsElapsed < currentLowestQuantum && runQueue->array[i].waitingOn == -1 &&
-			 runQueue->array[i].waitingOnMutex == -1 && runQueue->array[i].status != DONE){ 
+			 runQueue->array[i].waitingOnMutex == -1 && runQueue->array[i].status != DONE && runQueue->array[i].tid < lowestQuantumTid){ 
 				currentLowestQuantum = runQueue->array[i].quantumsElapsed;
 				lowestQuantumTid = runQueue->array[i].tid;
 			}
 		}
+		//printf( "Lowest Quantum (Highest Priority) tid: %d\n", runQueue->array[lowestQuantumTid].tid );
+		//printf( "Front of Queue: %d\n", runQueue->array[runQueue->front].tid );
 		//if(DEBUGMODE) printf("next thread: thread %d with %d q. elapsed\n", lowestQuantumTid, currentLowestQuantum);
 		//rotating runqueue until highest priority is in the running position
 		//if(DEBUGMODE) printf("shifting thread %d to run position\n", lowestQuantumTid);
@@ -297,12 +299,13 @@ static void sched_stcf() {
 			tcb temp = dequeue(runQueue);
 			enqueue(runQueue, temp);
 		} 
+		//printf( "Front of Queue: %d\n", runQueue->array[runQueue->front].tid );
 		runQueue->array[runQueue->front].status = RUNNING;
 		if(DEBUGMODE && front(runQueue).tid == 0) printf("now running thread %d\n", front(runQueue).tid);
 		resumeTimer(); //back to action
 		//swapcontext(&schedContext, &runQueue->array[runQueue->front].threadContext);
-		if(justExited == 1 && lowestQuantumTid > -1) setcontext(&runQueue->array[runQueue->front].threadContext);
-		else if(justExited == 0 && lowestQuantumTid > -1) swapcontext(&runQueue->array[indexOldFront].threadContext, &runQueue->array[runQueue->front].threadContext);
+		if(justExited == 1 /*&& lowestQuantumTid > -1*/ && lowestQuantumTid < 1000000) { /*printf( "IN THE IF STATEMENT\n" );*/ setcontext(&runQueue->array[runQueue->front].threadContext); }
+		else if(justExited == 0 /*&& lowestQuantumTid > -1*/ && lowestQuantumTid < 1000000) { /*printf( "IN THE ELSE IF STATEMENT\n" );*/ swapcontext(&runQueue->array[indexOldFront].threadContext, &runQueue->array[runQueue->front].threadContext); }
 	//}
 	// YOUR CODE HERE
 }
