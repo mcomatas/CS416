@@ -12,8 +12,6 @@
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_MYTHREAD macro */
 #define USE_MYTHREAD 1
 
-#define DEBUGMODE 1 //1 for debugging prints, 0 for none. 0 for final submission!
-
 /* include lib header files that you need here: */
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -26,76 +24,65 @@
 #include <string.h>
 
 #define STACK_SIZE SIGSTKSZ
-#define QUEUE_SIZE 125
-#define QUANTUM 5 //milliseconds
-#define handle_error(msg) \
-    do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define QUANTUM 10 //milliseconds
+#define DEBUG 0
 
 typedef uint mypthread_t;
 
-enum my_pthread_state {
-	/*ACTIVE, // 0
-	BLOCKED, // 1
-	DEAD // 2 */
-
-	READY = 0, // 0
-	START = 1, // 1
-	RUNNING = 2, // 2
-	WAITING = 3, // 3
-	DONE = 4 // 4
+enum pthreadState{
+	RUNNING = 0,
+	READY = 1,
+	DONE = 2,
+	WAITBLOCK = 3,
+	NOTUSED = 4
 };
 
-enum mutexState {
-	UNLOCKED = 0, //0
-	LOCKED = 1 //1
+enum mutexState{
+	UNLOCKED = 0,
+	LOCKED = 1
 };
+
+struct itimerval timer;
 
 typedef struct threadControlBlock {
-	// YOUR CODE HERE
-	mypthread_t tid; // thread id
-	int waitingOn; //tid of thread it is waiting on (thread join)
-	int beingWaitedOnBy; //tid of thread it is being waited on by (thread join)
-	int waitingOnMutex; //mutexid of mutex it is waiting to be unlocked
-	enum my_pthread_state status;
-	int quantumsElapsed; //lower quantums elapsed = higher priority for scheduler
+	/* add important states in a thread control block */
+	// thread Id
+	// thread status
+	// thread context
+	// thread stack
+	// thread priority
+	// And more ...
+	mypthread_t tid;
+	enum pthreadState status;
+	int waitingOn;
+	int beingWaitedOnBy;
+	int waitingOnMutex;
+	int quantumsElapsed;
 	void* threadStack;
 	ucontext_t threadContext;
-	
+
+	// YOUR CODE HERE
 } tcb;
 
 /* mutex struct definition */
 typedef struct mypthread_mutex_t {
 	int mutexId;
 	int lockState;
-	int currentHolder; //thread id of current thread using mutex
 } mypthread_mutex_t;
 
 /* define your data structures here: */
+// Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
-// queue data structure here for run queue
-typedef struct Queue
-{
-	int front, rear, size; //using queue of ints for now to set up data structure, this is ok to keep int because they are indexs of what is the front and rear
-	unsigned capacity;
-	tcb* array; //change this from int array to mypthread_t array
-} queue;
+// YOUR CODE HERE
 
-queue* runQueue; //runqueue
-struct itimerval timer;
 
 /* Function Declarations: */
 void swapToScheduler();
 void pauseTimer();
 void resumeTimer();
-struct Queue* createQueue(unsigned cap);
-int isFull(struct Queue* queue);
-int isEmpty(struct Queue* queue);
-int isEmpty(struct Queue* queue);
-void enqueue(struct Queue* queue, tcb item);
-tcb dequeue(struct Queue* queue);
-tcb front(struct Queue* queue);
-tcb rear(struct Queue* queue);
-int findThread(struct Queue* queue, int targetTid);
+
+static void sched_stcf();
+static void schedule();
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void
@@ -122,9 +109,6 @@ int mypthread_mutex_unlock(mypthread_mutex_t *mutex);
 
 /* destroy the mutex */
 int mypthread_mutex_destroy(mypthread_mutex_t *mutex);
-
-static void sched_stcf();
-static void schedule();
 
 #ifdef USE_MYTHREAD
 #define pthread_t mypthread_t
