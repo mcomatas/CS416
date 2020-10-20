@@ -13,6 +13,7 @@ static mypthread_t idCounter = 0;
 static mypthread_t current;
 static int mutexIdCounter = 0;
 int justExited = 0;
+int lastExited = -1;
 
 
 /* create a new thread */
@@ -31,6 +32,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
     	runQueue[0].beingWaitedOnBy = -1;
     	runQueue[0].waitingOnMutex = -1;
     	runQueue[0].quantumsElapsed = 0;
+		runQueue[0].returnValue = NULL;
     	
     	current = idCounter;
     	
@@ -42,10 +44,10 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
 		sa.sa_handler = &swapToScheduler; //what function is called when timer signal happens
 		sigaction (SIGPROF, &sa, NULL);
 		//when does the timer reset
-		timer.it_interval.tv_usec = QUANTUM * 1000; //1000 microsecs = 1 ms
+		timer.it_interval.tv_usec = QUANTUM; //1000 microsecs = 1 ms
 		timer.it_interval.tv_sec = 0;
 		//set up current timer
-		timer.it_value.tv_usec = QUANTUM * 1000;
+		timer.it_value.tv_usec = QUANTUM;
 		timer.it_value.tv_sec = 0;
 		setitimer(ITIMER_PROF, &timer, NULL);
     }
@@ -56,6 +58,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
     runQueue[idCounter].beingWaitedOnBy = -1;
     runQueue[idCounter].waitingOnMutex = -1;
     runQueue[idCounter].quantumsElapsed = 0;
+	runQueue[idCounter].returnValue = NULL;
     
     void* threadStack = malloc(STACK_SIZE);
     
@@ -97,6 +100,9 @@ void mypthread_exit(void *value_ptr) {
 		runQueue[runQueue[current].beingWaitedOnBy].status = READY;
 		if(DEBUG)printf("thread %d exit, %d can now proceed\n", current, runQueue[current].beingWaitedOnBy);
 	}
+	if(value_ptr != NULL){ //return value stored in tcb
+		runQueue[current].returnValue = value_ptr;
+	}
 	free(runQueue[current].threadStack);
 	if(DEBUG) printf("thread %d exit\n", current);
 	justExited = 1;
@@ -108,7 +114,6 @@ void mypthread_exit(void *value_ptr) {
 
 /* Wait for thread termination */
 int mypthread_join(mypthread_t thread, void **value_ptr) {
-
 	// wait for a specific thread to terminate
 	// de-allocate any dynamic memory created by the joining thread
 	if(runQueue[thread].status == DONE) {
@@ -116,12 +121,13 @@ int mypthread_join(mypthread_t thread, void **value_ptr) {
 		schedule();
 		return 0;
 	}
+	if(value_ptr != NULL){
+		value_ptr = runQueue[thread].returnValue;
+	}
 	runQueue[thread].beingWaitedOnBy = current;
 	runQueue[current].status = WAITBLOCK;
 	runQueue[current].waitingOn = thread;
 	justExited = 0;
-	ucontext_t currentctx;
-	getcontext(&currentctx);
 	if(DEBUG) printf("thread %d waiting on %d\n", current, thread);
 	schedule();
 	return 0;
@@ -142,13 +148,13 @@ int mypthread_mutex_init(mypthread_mutex_t *mutex,
 
 /* aquire the mutex lock */
 int mypthread_mutex_lock(mypthread_mutex_t *mutex) {
-  	  while(__atomic_test_and_set((volatile void*)&mutex->lockState, __ATOMIC_RELAXED)){
+  	  while(__atomic_test_and_set((volatile void*)&mutex->lockState, __ATOMIC_RELAXED)){ //loop until mutex no longer locked
        	runQueue[current].status = WAITBLOCK;
        	runQueue[current].waitingOnMutex = mutex->mutexId;
         justExited = 0;
-        schedule();
+        schedule(); //choose something else to do
       }
-        
+      //made it, time to lock it for personal use  
       if(mutex->lockState == UNLOCKED) mutex->lockState = LOCKED;
       return 0;
 };
@@ -200,12 +206,11 @@ static void schedule() {
 	// YOUR CODE HERE
 	pauseTimer();
 // schedule policy
+	
+#ifndef MLFQ
 	sched_stcf();
-//#ifndef MLFQ
-	// Choose STCF
-//#else
-	// Choose MLFQ
-//#endif
+#else
+#endif
 
 }
 
@@ -266,3 +271,4 @@ void pauseTimer(){
 void resumeTimer(){
 	setitimer(ITIMER_PROF, &timer, NULL);
 }
+

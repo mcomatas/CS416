@@ -24,7 +24,7 @@
 #include <string.h>
 
 #define STACK_SIZE SIGSTKSZ
-#define QUANTUM 10 //milliseconds
+#define QUANTUM 10000 //milliseconds
 #define DEBUG 0
 
 typedef uint mypthread_t;
@@ -58,8 +58,11 @@ typedef struct threadControlBlock {
 	int beingWaitedOnBy;
 	int waitingOnMutex;
 	int quantumsElapsed;
+
 	void* threadStack;
 	ucontext_t threadContext;
+
+	void* returnValue;	
 
 	// YOUR CODE HERE
 } tcb;
@@ -80,7 +83,6 @@ typedef struct mypthread_mutex_t {
 void swapToScheduler();
 void pauseTimer();
 void resumeTimer();
-
 static void sched_stcf();
 static void schedule();
 
