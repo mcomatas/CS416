@@ -22,6 +22,7 @@
 #include <ucontext.h>
 #include <signal.h>
 #include <string.h>
+//#include <valgrind/valgrind.h>
 
 #define STACK_SIZE SIGSTKSZ
 #define QUANTUM 10000 //milliseconds
@@ -69,6 +70,8 @@ typedef struct threadControlBlock {
 	// YOUR CODE HERE
 } tcb;
 
+tcb runQueue[300];
+
 /* mutex struct definition */
 typedef struct mypthread_mutex_t {
 	int mutexId;
@@ -85,6 +88,7 @@ typedef struct mypthread_mutex_t {
 void swapToScheduler();
 void pauseTimer();
 void resumeTimer();
+void cleanup();
 static void sched_stcf();
 static void schedule();
 

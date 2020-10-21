@@ -8,13 +8,11 @@
 
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
-static tcb runQueue[300];
-static mypthread_t idCounter = 0;
-static mypthread_t current;
-static int mutexIdCounter = 0;
+mypthread_t idCounter = 0;
+mypthread_t current;
+int mutexIdCounter = 0;
 int justExited = 0;
 int lastExited = -1;
-
 
 /* create a new thread */
 int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
@@ -23,8 +21,17 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
     	//setup array
     	int i = 0;
     	for(i = 0; i < 300; i++){
+    		runQueue[i].tid = -5;
     		runQueue[i].status = NOTUSED;
+    		runQueue[i].waitingOn = -5;
+    		runQueue[i].beingWaitedOnBy = -5;
+    		runQueue[i].waitingOnMutex = -5;
+    		runQueue[i].quantumsElapsed = -5;
+			runQueue[i].returnValue = NULL;
     	}
+
+		atexit(cleanup);
+
     	//make main thread
     	runQueue[0].tid = idCounter;
     	runQueue[0].status = READY;
@@ -60,10 +67,11 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
     runQueue[idCounter].quantumsElapsed = 0;
 	runQueue[idCounter].returnValue = NULL;
     
-    void* threadStack = malloc(STACK_SIZE);
+    runQueue[idCounter].threadStack = malloc(STACK_SIZE);
+	//VALGRIND_STACK_REGISTER(runQueue[idCounter].threadStack, runQueue[idCounter].threadStack + STACK_SIZE);
     
     getcontext(&runQueue[idCounter].threadContext);
-    runQueue[idCounter].threadContext.uc_stack.ss_sp = threadStack;
+    runQueue[idCounter].threadContext.uc_stack.ss_sp = runQueue[idCounter].threadStack;
     runQueue[idCounter].threadContext.uc_stack.ss_size = STACK_SIZE;
     runQueue[idCounter].threadContext.uc_stack.ss_flags = 0;
     runQueue[idCounter].threadContext.uc_link = NULL;
@@ -103,7 +111,6 @@ void mypthread_exit(void *value_ptr) {
 	if(value_ptr != NULL){ //return value stored in tcb
 		runQueue[current].returnValue = value_ptr;
 	}
-	free(runQueue[current].threadStack);
 	if(DEBUG) printf("thread %d exit\n", current);
 	justExited = 1;
 	resumeTimer();
@@ -270,4 +277,12 @@ void pauseTimer(){
 
 void resumeTimer(){
 	setitimer(ITIMER_PROF, &timer, NULL);
+}
+
+void cleanup(){
+	int i = 1;
+	while(runQueue[i].status == DONE){
+		free(runQueue[i].threadStack);
+		i++;
+	}
 }
