@@ -12,6 +12,4 @@
  */
 
 int main(int argc, char **argv) {
-    int* thing;
-    free(thing);
 }
