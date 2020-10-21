@@ -85,7 +85,6 @@ typedef struct mypthread_mutex_t {
 void swapToScheduler();
 void pauseTimer();
 void resumeTimer();
-void cleanup();
 static void sched_stcf();
 static void schedule();
 
