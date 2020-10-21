@@ -1,8 +1,8 @@
 // File:	mypthread.c
 
-// List all group member's name: Elijah Ongoco
-// username of iLab: edo16
-// iLab Server: ilab3.cs.rutgers.edu
+// List all group member's name: Elijah Ongoco, Michael Comatas
+// username of iLab: edo16, mac776
+// iLab Server: ilab3.cs.rutgers.edu, cd.cs.rutgers.edu
 
 #include "mypthread.h"
 

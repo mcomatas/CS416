@@ -12,6 +12,6 @@
  */
 
 int main(int argc, char **argv) {
-    int thing = SIGSTKSZ;
-    printf("%d", thing);
+    int* thing;
+    free(thing);
 }
