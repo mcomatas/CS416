@@ -1,14 +1,14 @@
 // File:	mypthread.c
 
-// List all group member's name:
-// username of iLab:
-// iLab Server:
+// List all group member's name: Elijah Ongoco
+// username of iLab: edo16
+// iLab Server: ilab3.cs.rutgers.edu
 
 #include "mypthread.h"
 
 // INITAILIZE ALL YOUR VARIABLES HERE
 // YOUR CODE HERE
-static tcb runQueue[150];
+static tcb runQueue[300];
 static mypthread_t idCounter = 0;
 static mypthread_t current;
 static int mutexIdCounter = 0;
@@ -22,7 +22,7 @@ int mypthread_create(mypthread_t * thread, pthread_attr_t * attr,
     if(idCounter == 0){
     	//setup array
     	int i = 0;
-    	for(i = 0; i < 150; i++){
+    	for(i = 0; i < 300; i++){
     		runQueue[i].status = NOTUSED;
     	}
     	//make main thread
@@ -271,4 +271,3 @@ void pauseTimer(){
 void resumeTimer(){
 	setitimer(ITIMER_PROF, &timer, NULL);
 }
-

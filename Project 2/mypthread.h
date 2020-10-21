@@ -34,7 +34,8 @@ enum pthreadState{
 	READY = 1,
 	DONE = 2,
 	WAITBLOCK = 3,
-	NOTUSED = 4
+	NOTUSED = 4,
+	CLEANED = 5
 };
 
 enum mutexState{
@@ -43,6 +44,7 @@ enum mutexState{
 };
 
 struct itimerval timer;
+ucontext_t schedContext;
 
 typedef struct threadControlBlock {
 	/* add important states in a thread control block */
@@ -83,6 +85,7 @@ typedef struct mypthread_mutex_t {
 void swapToScheduler();
 void pauseTimer();
 void resumeTimer();
+void cleanup();
 static void sched_stcf();
 static void schedule();
 

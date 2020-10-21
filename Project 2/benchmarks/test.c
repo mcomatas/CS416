@@ -12,15 +12,6 @@
  */
 
 int main(int argc, char **argv) {
-    int** vpointer1;
-    int* vpointer2;
-    int* returnval;
-
-    int test = 69;
-
-    returnval = test;
-    vpointer2 = returnval;
-
-    vpointer1 = vpointer2;
-    printf("%d %d %d", returnval, vpointer1, vpointer2);
+    int thing = SIGSTKSZ;
+    printf("%d", thing);
 }
