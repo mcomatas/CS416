@@ -15,11 +15,22 @@
 
 #define MEMSIZE 1024*1024*1024
 
+// NEW: Size of physical/virtual pages
+#define NUM_PHYS_PGS MEMSIZE / PGSIZE;
+#define NUM_VIRT_PGS MAX_MEMSIZE / PGSIZE;
+
 // Represents a page table entry
 typedef unsigned long pte_t;
 
 // Represents a page directory entry
 typedef unsigned long pde_t;
+
+// NEW: physical memory, page states
+char* physicalMem;
+char* physPageMap;
+char* virtPageMap;
+pde_t** pageDirectory;
+
 
 #define TLB_SIZE 120
 

@@ -1,17 +1,31 @@
 #include "my_vm.h"
 
 /*
+    To do list
+    1. figure out data structures
+    2. SetPhysicalMem(), Translate(), PageMap()
+    3. myalloc(), myfree()
+    4. matrix multiplication
+    5. implemenet direct mapped TLB
+*/
+
+/*
 Function responsible for allocating and setting your physical memory 
 */
 void SetPhysicalMem() {
 
     //Allocate physical memory using mmap or malloc; this is the total size of
     //your memory you are simulating
-
+    physicalMem = malloc(MEM_SIZE * sizeof(char));
     
+    memset(physicalMem, 0, MEM_SIZE * sizeof(char));
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
+    physPageMap = malloc(NUM_PHYS_PGS * sizeof(char));
+    virtPageMap = malloc(NUM_VIRT_PGS * sizeof(char));
 
+    memset(physPageMap, 0, NUM_PHYS_PGS * sizeof(char));
+    memset(virtPageMap, 0, NUM_VIRT_PGS * sizeof(char));
 }
 
 
@@ -24,7 +38,7 @@ pte_t * Translate(pde_t *pgdir, void *va) {
     //HINT: Get the Page directory index (1st level) Then get the
     //2nd-level-page table index using the virtual address.  Using the page
     //directory index and page table index get the physical address
-
+    uintptr_t virtualAddress = (uintptr_t)va;
 
     //If translation not successfull
     return NULL; 
