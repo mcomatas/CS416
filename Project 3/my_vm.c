@@ -16,9 +16,9 @@ void SetPhysicalMem() {
 
     //Allocate physical memory using mmap or malloc; this is the total size of
     //your memory you are simulating
-    physicalMem = malloc(MEM_SIZE * sizeof(char));
+    physicalMem = malloc(MEMSIZE * sizeof(char));  //had it as MEM_SIZE, I think it is just MEMSIZE though
     
-    memset(physicalMem, 0, MEM_SIZE * sizeof(char));
+    memset(physicalMem, 0, MEMSIZE * sizeof(char));
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
     physPageMap = malloc(NUM_PHYS_PGS * sizeof(char));
@@ -137,3 +137,49 @@ void MatMult(void *mat1, void *mat2, int size, void *answer) {
 
        
 }
+/*
+ * Part 2: Add a virtual to physical page translation to the TLB.
+ * Feel free to extend the function arguments or return type.
+ */
+
+
+int
+add_TLB(void *va, void *pa)
+{
+
+    /*Part 2 HINT: Add a virtual to physical page translation to the TLB */
+
+    return -1;
+}
+
+
+/*
+ * Part 2: Check TLB for a valid translation.
+ * Returns the physical page address.
+ * Feel free to extend this function and change the return type.
+ */
+pte_t *
+check_TLB(void *va) {
+
+    /* Part 2: TLB lookup code here */
+
+}
+
+
+/*
+ * Part 2: Print TLB miss rate.
+ * Feel free to extend the function arguments or return type.
+ */
+void
+print_TLB_missrate()
+{
+    double miss_rate = 0;
+
+    /*Part 2 Code here to calculate and print the TLB miss rate*/
+
+
+
+
+    fprintf(stderr, "TLB miss rate %lf \n", miss_rate);
+}
+
