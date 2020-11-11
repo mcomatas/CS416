@@ -21,11 +21,16 @@ void SetPhysicalMem() {
     memset(physicalMem, 0, MEMSIZE * sizeof(char));
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
-    physPageMap = malloc(NUM_PHYS_PGS * sizeof(char));
-    virtPageMap = malloc(NUM_VIRT_PGS * sizeof(char));
+    physPageMap = malloc( NUM_PHYS_PGS * sizeof(char));\
+    virtPageMap = malloc( NUM_VIRT_PGS * sizeof(char));
 
     memset(physPageMap, 0, NUM_PHYS_PGS * sizeof(char));
     memset(virtPageMap, 0, NUM_VIRT_PGS * sizeof(char));
+
+    //Initialize Page Directory here
+
+    //pageDirectory = malloc( )
+
 }
 
 
@@ -40,8 +45,43 @@ pte_t * Translate(pde_t *pgdir, void *va) {
     //directory index and page table index get the physical address
     uintptr_t virtualAddress = (uintptr_t)va;
 
+    //consider the possibility of va being NULL
+
+
+    //so we have a virtual addess [ 20 bit VPN | 12 bit offset ]
+    // [ 10 bit outer index | 10 bit inner index | 12 bit offset ] this is for 4KB pages
+    //outer bit index is page directory, inner index is page table
+
+    //get the outer index from VA
+    //int outerIndex = ( virtualAddress >> 22 ) | 0; //shfit 22 right for outer 10 bits then bitwise OR it with 0 (Might not need the bitwise OR actually)
+    //int innerIndex = (( virtualAddress << 10 ) >> 22 ) | 0; //I am not sure if this works (shifting 10 left then 22 right), but esentially we get the inner index (the 10 bits that rep the inner index)
+    //int offset; //need to get offset here which is the last twelve bits
+
+    //((( 1 << k ) - 1) & (num >> ( p - 1 )))
+    
+    int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
+    int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
+    int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
+
+    // pgdir[outerIndex][innerIndex] = address
+    // this should be the physical address and then once shifted 12 bits left and bitwise ORed with offset it is appended??
+
+    return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //this would return the physical address I think with the offset appeneded
+    //I think there needs to be a check to see if translation is successful? if not then return NULL instead??
+
+    if( pgdir[outerIndex][innerIndex] != NULL )
+    {
+        return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //if translation is successful? basically if not NULL?
+        //I bit wise ORed to add the offset, I am not sure why, but I don't think that might actually be right. Might be able to do regular arithmetic
+    }
+    else
+    {
+        return NULL; //if not successful then return NULL
+    }
+
+
     //If translation not successfull
-    return NULL; 
+    // return NULL; 
 }
 
 
@@ -59,7 +99,26 @@ PageMap(pde_t *pgdir, void *va, void *pa)
     and page table (2nd-level) indices. If no mapping exists, set the
     virtual to physical mapping */
 
-    return -1;
+    uintptr_t virtualAddress = (uintptr_t)va;
+
+    int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
+    int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
+    int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
+
+    // if pgdir[out][inner] == NULL then that means that there is no mapping?
+    if( pgdir[outerIndex][innerIndex] == NULL )
+    {
+        // pa = va;
+        // or is it 
+        pa = pgdir[outerIndex][innerIndex];
+        return 0; //return 0 to show successful pageMap??
+    }
+    else
+    {
+        return -1;
+    }
+
+    // return -1;
 }
 
 

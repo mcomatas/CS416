@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 //Assume the address space is 32 bits, so the max memory size is 4GB
 //Page size is 4KB
@@ -17,20 +18,26 @@
 #define MEMSIZE 1024*1024*1024
 
 // NEW: Size of physical/virtual pages
-#define NUM_PHYS_PGS MEMSIZE / PGSIZE;
-#define NUM_VIRT_PGS MAX_MEMSIZE / PGSIZE;
+#define NUM_PHYS_PGS MEMSIZE / PGSIZE
+#define NUM_VIRT_PGS MAX_MEMSIZE / PGSIZE
+
+//#define NUM_PHYS_PGS 1024*1024*1024/4096
+//#define NUM_VIRT_PGS 4ULL*1024*1024*1024/4096
 
 // Represents a page table entry
+//typedef void* pte_t; //used to be unsigned long, maybe we make this char* instead of void* though 
 typedef unsigned long pte_t;
 
 // Represents a page directory entry
-typedef unsigned long pde_t;
+typedef pte_t* pde_t; //used to be unsigned long, TA said it was ok to change these and it might be easier to work with in this way. Can think of it as 
+//typedef unsigned long pde_t;
 
 // NEW: physical memory, page states
 char* physicalMem;
 char* physPageMap;
 char* virtPageMap;
 pde_t** pageDirectory;
+// pde_t pageDirectory;
 
 
 #define TLB_SIZE 120
