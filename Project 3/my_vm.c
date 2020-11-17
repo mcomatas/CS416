@@ -21,15 +21,24 @@ void SetPhysicalMem() {
     memset(physicalMem, 0, MEMSIZE * sizeof(char));
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
-    physPageMap = malloc( NUM_PHYS_PGS * sizeof(char));\
-    virtPageMap = malloc( NUM_VIRT_PGS * sizeof(char));
+    //physPageMap = malloc( NUM_PHYS_PGS * sizeof(char));\
+    //virtPageMap = malloc( NUM_VIRT_PGS * sizeof(char));
 
-    memset(physPageMap, 0, NUM_PHYS_PGS * sizeof(char));
-    memset(virtPageMap, 0, NUM_VIRT_PGS * sizeof(char));
+    //memset(physPageMap, 0, NUM_PHYS_PGS * sizeof(char));
+    //memset(virtPageMap, 0, NUM_VIRT_PGS * sizeof(char));
 
     //Initialize Page Directory here
 
-    //pageDirectory = malloc( )
+    //pageDirectory = malloc(1024);
+
+    //memset(pageDirectory, NULL, 1024);
+
+    oneBit( 0 );//allocate outer page table on the first page in mem
+
+    //referring to the offset, outer, and inner bits
+    offset = 12;
+    outer = 12;
+    inner = 10;
 
 }
 
@@ -43,7 +52,9 @@ pte_t * Translate(pde_t *pgdir, void *va) {
     //HINT: Get the Page directory index (1st level) Then get the
     //2nd-level-page table index using the virtual address.  Using the page
     //directory index and page table index get the physical address
-    uintptr_t virtualAddress = (uintptr_t)va;
+    
+    //uintptr_t virtualAddress = (uintptr_t)va;
+    pte_t virtualAddress = (pte_t)va;
 
     //consider the possibility of va being NULL
 
@@ -59,25 +70,46 @@ pte_t * Translate(pde_t *pgdir, void *va) {
 
     //((( 1 << k ) - 1) & (num >> ( p - 1 )))
     
-    int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
+    int outerIndex = virtualAddress >> 22; //bit shift 22 times to get outer
     int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
-    int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
+
+    pte_t* innerPage = (pte_t*)pgdir[outerIndex];
+    //if the inner page table is not allocated
+    if( !innerPage )
+    {
+        return NULL;
+    }
+
+    pte_t* page = (pte_t*)innerPage[innerIndex];
+    //if the page is not allocated
+    if( !page )
+    {
+        return NULL;
+    }
+
+    return page;
+
+
+    
+    //int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
+    //int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
+    //int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
 
     // pgdir[outerIndex][innerIndex] = address
     // this should be the physical address and then once shifted 12 bits left and bitwise ORed with offset it is appended??
 
-    return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //this would return the physical address I think with the offset appeneded
+    //return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //this would return the physical address I think with the offset appeneded
     //I think there needs to be a check to see if translation is successful? if not then return NULL instead??
 
-    if( pgdir[outerIndex][innerIndex] != NULL )
-    {
-        return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //if translation is successful? basically if not NULL?
+    //if( pgdir[outerIndex][innerIndex] != NULL )
+    //{
+     //   return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //if translation is successful? basically if not NULL?
         //I bit wise ORed to add the offset, I am not sure why, but I don't think that might actually be right. Might be able to do regular arithmetic
-    }
-    else
-    {
-        return NULL; //if not successful then return NULL
-    }
+    //}
+    //else
+    //{
+     //   return NULL; //if not successful then return NULL
+    //}
 
 
     //If translation not successfull
@@ -99,24 +131,47 @@ PageMap(pde_t *pgdir, void *va, void *pa)
     and page table (2nd-level) indices. If no mapping exists, set the
     virtual to physical mapping */
 
-    uintptr_t virtualAddress = (uintptr_t)va;
+    //uintptr_t virtualAddress = (uintptr_t)va;
+    pte_t virtualAddress = (pte_t)va;
 
-    int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
+    int outerIndex = virtualAddress >> 22; //bit shift 22 times to get outer
     int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
-    int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
+
+    pte_t* innerPage = (pte_t*)pgdir[outerIndex];
+    //if inner page table is not allocated, allocate it
+    if( !innerPage )
+    {
+        pgdir[outerIndex] = (pte_t)get_next_avail(NUM_PHYS_PGS);
+    }
+
+    pte_t* page = (pte_t*)innerPage[innerIndex];
+    if( page )
+    {
+        innerPage[innerIndex] = (pte_t)pa;
+        return 0;//on success
+    }
+
+    return -1;//on failure
+
+
+    //int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
+    //int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
+    //int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
 
     // if pgdir[out][inner] == NULL then that means that there is no mapping?
-    if( pgdir[outerIndex][innerIndex] == NULL )
+    /*if( pgdir[outerIndex][innerIndex] == NULL )
     {
         // pa = va;
-        // or is it 
+        // or is it
+        pgdir[outerIndex] = malloc(1024);
+        memset(pgdir, NULL, 1024);
         pa = pgdir[outerIndex][innerIndex];
         return 0; //return 0 to show successful pageMap??
     }
     else
     {
         return -1;
-    }
+    }*/
 
     // return -1;
 }
@@ -127,6 +182,39 @@ PageMap(pde_t *pgdir, void *va, void *pa)
 void *get_next_avail(int num_pages) {
  
     //Use virtual address bitmap to find the next free page
+    
+    //searching for contiguous pages
+    int i, j;
+    for( i = 1; i < NUM_PHYS_PGS; i++ )
+    {
+        if( !isBit(i) )
+        {
+            for( j = 1; j < num_pages; j++ )
+            {
+                if( isBit( i + j ) )
+                {
+                    break; //i would be 0, so if j becomes >0 it would mean j is taken and we have from i to j contiguous pages
+                }
+            }
+            if( j == num_pages )
+            {
+                break; //if j got to the end of num_pages we wanted and everything was contiguous
+            }
+        }
+    }
+
+    // we could not find contiguous num_pages so we return NULL
+    if( i == NUM_PHYS_PGS )
+    {
+        return NULL;
+    }
+
+    int k;
+    for( k = i; k < i + num_pages; k++ )
+    {
+        oneBit(k);
+    }
+    return physicalMem + (i * PGSIZE);
 }
 
 
@@ -240,5 +328,40 @@ print_TLB_missrate()
 
 
     fprintf(stderr, "TLB miss rate %lf \n", miss_rate);
+}
+
+//sets the bit to 1 in virtual bit map, indicating it is in use
+void oneBit( int page )
+{
+    int index = page / 32;
+    int pos = page % 32;
+
+    virtBitMap[index] = virtBitMap[index] | ( 1 << pos );
+}
+
+//sets the bit to 0 in virtual bit map, indicating not in use
+void zeroBit( int page )
+{
+    int index = page / 32;
+    int pos = page % 32;
+
+    virtBitMap[index] = virtBitMap[index] & ~( 1 << pos );
+}
+
+//tests whether a certain bit is 0 or 1, to see if the bit is taken or not
+int isBit( int page )
+{
+    int index = page / 32;
+    int pos = page % 32;
+
+    if( virtBitMap[index] & ( 1 << pos ) )
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+    
 }
 

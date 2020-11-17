@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 //Assume the address space is 32 bits, so the max memory size is 4GB
 //Page size is 4KB
@@ -29,8 +30,8 @@
 typedef unsigned long pte_t;
 
 // Represents a page directory entry
-typedef pte_t* pde_t; //used to be unsigned long, TA said it was ok to change these and it might be easier to work with in this way. Can think of it as 
-//typedef unsigned long pde_t;
+//typedef pte_t* pde_t; //used to be unsigned long, TA said it was ok to change these and it might be easier to work with in this way. Can think of it as 
+typedef unsigned long pde_t;
 
 // NEW: physical memory, page states
 char* physicalMem;
@@ -38,6 +39,14 @@ char* physPageMap;
 char* virtPageMap;
 pde_t** pageDirectory;
 // pde_t pageDirectory;
+
+//virtual bit map - 0-8191 for a total of 262,144 physical pages
+//page 0 represented by 0-31, page 1 32-63, etc.
+unsigned long virtBitMap[NUM_PHYS_PGS/32];
+
+int outer;
+int inner;
+int offset;
 
 
 #define TLB_SIZE 120
@@ -55,6 +64,7 @@ struct tlb tlb_store;
 void SetPhysicalMem();
 pte_t* Translate(pde_t *pgdir, void *va);
 int PageMap(pde_t *pgdir, void *va, void* pa);
+void *get_next_avail( int num_pages );
 bool check_in_tlb(void *va);
 void put_in_tlb(void *va, void *pa);
 void *myalloc(unsigned int num_bytes);
@@ -63,5 +73,9 @@ void PutVal(void *va, void *val, int size);
 void GetVal(void *va, void *val, int size);
 void MatMult(void *mat1, void *mat2, int size, void *answer);
 void print_TLB_missrate();
+
+void oneBit( int page );
+void zeroBit( int page );
+int isBit( int page );
 
 #endif
