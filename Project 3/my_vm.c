@@ -224,11 +224,16 @@ and used by the benchmark
 void *myalloc(unsigned int num_bytes) {
 
     //HINT: If the physical memory is not yet initialized, then allocate and initialize.
+    if(physicalMem == NULL){
+        SetPhysicalMem();
+    }
 
    /* HINT: If the page directory is not initialized, then initialize the
    page directory. Next, using get_next_avail(), check if there are free pages. If
    free pages are available, set the bitmaps and map a new page. Note, you will 
    have to mark which physical pages are used. */
+   get_next_avail(NUM_VIRT_PGS);
+
 
     return NULL;
 }
@@ -281,8 +286,22 @@ void MatMult(void *mat1, void *mat2, int size, void *answer) {
     load each element and perform multiplication. Take a look at test.c! In addition to 
     getting the values from two matrices, you will perform multiplication and 
     store the result to the "answer array"*/
+    int** result = allocate_matrix(size, size);
+    int i, j, r = 0;
+    for(i = 0; i < size; i++){
+        for(j = 0; j < size; j++){
+            result[i][j] = 0;
+            for(r = 0; r < size; r++){
+                result[i][j] += mat1[i][r] * mat2[r][j];
+            }
+        }
+    }
 
-       
+    //now copy to answer matrix
+    //...
+
+    //free original result matrix
+    free_matrix(result, size);
 }
 /*
  * Part 2: Add a virtual to physical page translation to the TLB.
@@ -365,3 +384,19 @@ int isBit( int page )
     
 }
 
+int** allocate_matrix(int rows, int cols){
+  int** ret_val = (int**)malloc(rows * sizeof(int*));
+  int i;
+  for(i = 0; i < rows; i++){
+    ret_val[i] = (int*)malloc(cols * sizeof(int));
+  }
+  return ret_val;
+}
+
+void free_matrix(int** arr1, int rows){
+  int i;
+  for(i = 0; i < rows; i++){
+    free(arr1[i]);
+  }
+  free(arr1);
+}

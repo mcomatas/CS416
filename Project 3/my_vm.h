@@ -77,5 +77,7 @@ void print_TLB_missrate();
 void oneBit( int page );
 void zeroBit( int page );
 int isBit( int page );
+int** allocate_matrix(int rows, int cols);
+void free_matrix(int** arr1, int rows);
 
 #endif
