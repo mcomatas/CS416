@@ -18,14 +18,14 @@ void SetPhysicalMem() {
     //your memory you are simulating
     physicalMem = malloc(MEMSIZE * sizeof(char));  //had it as MEM_SIZE, I think it is just MEMSIZE though
     
-    memset(physicalMem, 0, MEMSIZE * sizeof(char));
+    memset(physicalMem, '0', MEMSIZE * sizeof(char));
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
-    //physPageMap = malloc( NUM_PHYS_PGS * sizeof(char));\
-    //virtPageMap = malloc( NUM_VIRT_PGS * sizeof(char));
+    physBitMap = malloc( NUM_PHYS_PGS * sizeof(char));
+    virtBitMap = malloc( NUM_VIRT_PGS * sizeof(char));
 
-    //memset(physPageMap, 0, NUM_PHYS_PGS * sizeof(char));
-    //memset(virtPageMap, 0, NUM_VIRT_PGS * sizeof(char));
+    memset(physBitMap, '0', NUM_PHYS_PGS * sizeof(char));
+    memset(virtBitMap, '0', NUM_VIRT_PGS * sizeof(char));
 
     //Initialize Page Directory here
 
@@ -88,32 +88,6 @@ pte_t * Translate(pde_t *pgdir, void *va) {
     }
 
     return page;
-
-
-    
-    //int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
-    //int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
-    //int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
-
-    // pgdir[outerIndex][innerIndex] = address
-    // this should be the physical address and then once shifted 12 bits left and bitwise ORed with offset it is appended??
-
-    //return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //this would return the physical address I think with the offset appeneded
-    //I think there needs to be a check to see if translation is successful? if not then return NULL instead??
-
-    //if( pgdir[outerIndex][innerIndex] != NULL )
-    //{
-     //   return ( pgdir[outerIndex][innerIndex] << 12 ) | offset; //if translation is successful? basically if not NULL?
-        //I bit wise ORed to add the offset, I am not sure why, but I don't think that might actually be right. Might be able to do regular arithmetic
-    //}
-    //else
-    //{
-     //   return NULL; //if not successful then return NULL
-    //}
-
-
-    //If translation not successfull
-    // return NULL; 
 }
 
 
@@ -152,28 +126,6 @@ PageMap(pde_t *pgdir, void *va, void *pa)
     }
 
     return -1;//on failure
-
-
-    //int outerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 23 - 1 )));
-    //int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
-    //int offset = ((( 1 << 12 ) - 1) & ( virtualAddress >> ( 1 - 1 )));
-
-    // if pgdir[out][inner] == NULL then that means that there is no mapping?
-    /*if( pgdir[outerIndex][innerIndex] == NULL )
-    {
-        // pa = va;
-        // or is it
-        pgdir[outerIndex] = malloc(1024);
-        memset(pgdir, NULL, 1024);
-        pa = pgdir[outerIndex][innerIndex];
-        return 0; //return 0 to show successful pageMap??
-    }
-    else
-    {
-        return -1;
-    }*/
-
-    // return -1;
 }
 
 
@@ -182,9 +134,8 @@ PageMap(pde_t *pgdir, void *va, void *pa)
 void *get_next_avail(int num_pages) {
  
     //Use virtual address bitmap to find the next free page
-    
-    //searching for contiguous pages
-    int i, j;
+
+   int i, j;
     for( i = 1; i < NUM_PHYS_PGS; i++ )
     {
         if( !isBit(i) )
@@ -215,6 +166,7 @@ void *get_next_avail(int num_pages) {
         oneBit(k);
     }
     return physicalMem + (i * PGSIZE);
+
 }
 
 
@@ -228,12 +180,25 @@ void *myalloc(unsigned int num_bytes) {
         SetPhysicalMem();
     }
 
+    int numPages = (int)ceil(num_bytes / PGSIZE);
+
    /* HINT: If the page directory is not initialized, then initialize the
    page directory. Next, using get_next_avail(), check if there are free pages. If
    free pages are available, set the bitmaps and map a new page. Note, you will 
    have to mark which physical pages are used. */
-   get_next_avail(NUM_VIRT_PGS);
+    char* nextStart = get_next_avail(numPages);
+    if(nextStart == NULL){ //can't find any
+       return NULL;
+    }
+    int i;
 
+
+    for(i = 0; i < numPages; i++){
+        //check if theres enough space
+        //allocate and mark the bits throughout found available page,
+        //...
+        
+    }
 
     return NULL;
 }
@@ -245,6 +210,20 @@ void myfree(void *va, int size) {
     //Free the page table entries starting from this virtual address (va)
     // Also mark the pages free in the bitmap
     //Only free if the memory from "va" to va+size is valid
+    int i = 0, success = 1;
+    int numPages = (int)ceil(size/PGSIZE);
+    //check if all the memory is valid
+    for(i = 0; i < numPages; i++){
+        //check via going page by page and seeing if they're all '1' bits
+    }
+    //if all memory is not valid, return
+    if(success == 0){
+        return;
+    }
+
+    for(i = 0; i < numPages; i++){
+        //free all the memory by deallocation and also setting the page map bits to '0'
+    }
 }
 
 
@@ -257,7 +236,8 @@ void PutVal(void *va, void *val, int size) {
        the contents of "val" to a physical page. NOTE: The "size" value can be larger
        than one page. Therefore, you may have to find multiple pages using Translate()
        function.*/
-
+    pte_t* physAddr = Translate( pageDirectory, va );
+    memcpy( val, physAddr, size );
 }
 
 
@@ -268,8 +248,8 @@ void GetVal(void *va, void *val, int size) {
     "val" address. Assume you can access "val" directly by derefencing them.
     If you are implementing TLB,  always check first the presence of translation
     in TLB before proceeding forward */
-
-
+    pte_t* physAddr = Translate( pageDirectory, va ); 
+    memcpy( physAddr, val, size );
 }
 
 

@@ -18,7 +18,7 @@
 
 #define MEMSIZE 1024*1024*1024
 
-// NEW: Size of physical/virtual pages
+// NEW: Amnt of physical/virtual pages
 #define NUM_PHYS_PGS MEMSIZE / PGSIZE
 #define NUM_VIRT_PGS MAX_MEMSIZE / PGSIZE
 
@@ -35,14 +35,10 @@ typedef unsigned long pde_t;
 
 // NEW: physical memory, page states
 char* physicalMem;
-char* physPageMap;
-char* virtPageMap;
+char* physBitMap;
+char* virtBitMap;
 pde_t** pageDirectory;
 // pde_t pageDirectory;
-
-//virtual bit map - 0-8191 for a total of 262,144 physical pages
-//page 0 represented by 0-31, page 1 32-63, etc.
-unsigned long virtBitMap[NUM_PHYS_PGS/32];
 
 int outer;
 int inner;
