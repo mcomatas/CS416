@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 //Assume the address space is 32 bits, so the max memory size is 4GB
 //Page size is 4KB
@@ -35,9 +36,10 @@ typedef unsigned long pde_t;
 
 // NEW: physical memory, page states
 char* physicalMem;
+char* virtualMem;
 char* physBitMap;
 char* virtBitMap;
-pde_t** pageDirectory;
+pde_t* pageDirectory;
 // pde_t pageDirectory;
 
 int outer;

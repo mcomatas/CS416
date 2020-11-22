@@ -31,9 +31,9 @@ void SetPhysicalMem() {
 
     //Initialize Page Directory here
 
-    //pageDirectory = malloc(1024);
+    pageDirectory = malloc(1024 * 1024 * sizeof(pde_t));
 
-    //memset(pageDirectory, NULL, 1024);
+    memset(pageDirectory, 0, 1024 * 1024 * sizeof(pde_t));
 
     oneBit( 0 );//allocate outer page table on the first page in mem
 
@@ -155,7 +155,7 @@ void *get_next_avail(int num_pages) {
         }
         //if we found the contiguous pages, return the address
         if(success == 1){
-            return foundAddr;
+            return (void*)foundAddr;
         }
         //else skip the i variable forward to where j left off
         else{
@@ -284,8 +284,8 @@ void MatMult(void *mat1, void *mat2, int size, void *answer) {
         for(j = 0; j < size; j++){
             uintptr_t mat1addr = (uintptr_t)mat1 + (((i * size) * sizeof(int)) + (j * sizeof(int)));
             uintptr_t mat2addr = (uintptr_t)mat2 + (((i * size) * sizeof(int)) + (j * sizeof(int)));;
-            GetVal(mat1addr, &temp1, sizeof(int));
-            Getval(mat2addr, &temp2, sizeof(int));
+            GetVal((void*)mat1addr, &temp1, sizeof(int));
+            GetVal((void*)mat2addr, &temp2, sizeof(int));
             mat1Vector[(i * size) + j] = temp1;
             mat2Vector[(i * size) + j] = temp2;
         }
