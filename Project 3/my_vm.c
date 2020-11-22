@@ -17,8 +17,10 @@ void SetPhysicalMem() {
     //Allocate physical memory using mmap or malloc; this is the total size of
     //your memory you are simulating
     physicalMem = malloc(MEMSIZE * sizeof(char));  //had it as MEM_SIZE, I think it is just MEMSIZE though
-    
+    virtualMem = malloc(MAX_MEMSIZE * sizeof(char));
+
     memset(physicalMem, '0', MEMSIZE * sizeof(char));
+    memset(virtualMem, '0', MAX_MEMSIZE * sizeof(char));
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
     physBitMap = malloc( NUM_PHYS_PGS * sizeof(char));
@@ -134,39 +136,35 @@ PageMap(pde_t *pgdir, void *va, void *pa)
 void *get_next_avail(int num_pages) {
  
     //Use virtual address bitmap to find the next free page
-
-   int i, j;
-    for( i = 1; i < NUM_PHYS_PGS; i++ )
-    {
-        if( !isBit(i) )
-        {
-            for( j = 1; j < num_pages; j++ )
-            {
-                if( isBit( i + j ) )
-                {
-                    break; //i would be 0, so if j becomes >0 it would mean j is taken and we have from i to j contiguous pages
+    
+    //searching for contiguous pages
+    int i, j;
+    int success = 0, jCount = 0;
+    uintptr_t foundAddr = 0;
+    for(i = 1; i < NUM_VIRT_PGS; i++){
+        jCount = 0;
+        //check if the pages starting from the 0 is contig
+        if(virtBitMap[i] == '0'){
+            foundAddr = (uintptr_t)virtualMem + (i * PGSIZE);
+            for(j = i; j < num_pages, j < NUM_VIRT_PGS; j++){
+                if(virtBitMap[j] == '0'){
+                    jCount++;
                 }
             }
-            if( j == num_pages )
-            {
-                break; //if j got to the end of num_pages we wanted and everything was contiguous
-            }
+            if(jCount == num_pages) success = 1;
+        }
+        //if we found the contiguous pages, return the address
+        if(success == 1){
+            return foundAddr;
+        }
+        //else skip the i variable forward to where j left off
+        else{
+            i = j;
         }
     }
 
-    // we could not find contiguous num_pages so we return NULL
-    if( i == NUM_PHYS_PGS )
-    {
-        return NULL;
-    }
-
-    int k;
-    for( k = i; k < i + num_pages; k++ )
-    {
-        oneBit(k);
-    }
-    return physicalMem + (i * PGSIZE);
-
+    //couldn't find anything, return null
+    return NULL;
 }
 
 
@@ -188,16 +186,15 @@ void *myalloc(unsigned int num_bytes) {
    have to mark which physical pages are used. */
     char* nextStart = get_next_avail(numPages);
     if(nextStart == NULL){ //can't find any
-       return NULL;
+        printf("malloc error: no space\n");
+        return NULL;
     }
+
     int i;
-
-
+    uintptr_t virtAdd = (uintptr_t)nextStart;
+    int index = (int)ceil(virtAdd/4096);
     for(i = 0; i < numPages; i++){
-        //check if theres enough space
-        //allocate and mark the bits throughout found available page,
-        //...
-        
+        virtBitMap[index + i] = '1';
     }
 
     return NULL;
@@ -212,17 +209,24 @@ void myfree(void *va, int size) {
     //Only free if the memory from "va" to va+size is valid
     int i = 0, success = 1;
     int numPages = (int)ceil(size/PGSIZE);
+
+    uintptr_t virtAdd = (uintptr_t)va;
+    int index = (int)ceil(virtAdd/4096);
+
     //check if all the memory is valid
     for(i = 0; i < numPages; i++){
         //check via going page by page and seeing if they're all '1' bits
+        if(virtAdd + i == '0') success = 0;
     }
     //if all memory is not valid, return
     if(success == 0){
+        printf("free error: not all valid space\n");
         return;
     }
-
+    
     for(i = 0; i < numPages; i++){
-        //free all the memory by deallocation and also setting the page map bits to '0'
+        //free all the memory by setting the page map bits to '0'
+        virtBitMap[index + i] = '0';
     }
 }
 
@@ -266,22 +270,44 @@ void MatMult(void *mat1, void *mat2, int size, void *answer) {
     load each element and perform multiplication. Take a look at test.c! In addition to 
     getting the values from two matrices, you will perform multiplication and 
     store the result to the "answer array"*/
-    int** result = allocate_matrix(size, size);
+
+    //allocate storage of each matrices' numbers and matrix for final answer
+    int** resultVector = malloc(size * size * sizeof(int));
+    int* mat1Vector = malloc(size * size * sizeof(int));
+    int* mat2Vector = malloc(size * size * sizeof(int));
+
     int i, j, r = 0;
+    int temp1, temp2;
+
+    //copy values into malloc'd vectors
     for(i = 0; i < size; i++){
         for(j = 0; j < size; j++){
-            result[i][j] = 0;
+            uintptr_t mat1addr = (uintptr_t)mat1 + (((i * size) * sizeof(int)) + (j * sizeof(int)));
+            uintptr_t mat2addr = (uintptr_t)mat2 + (((i * size) * sizeof(int)) + (j * sizeof(int)));;
+            GetVal(mat1addr, &temp1, sizeof(int));
+            Getval(mat2addr, &temp2, sizeof(int));
+            mat1Vector[(i * size) + j] = temp1;
+            mat2Vector[(i * size) + j] = temp2;
+        }
+    }
+
+    //do the multiplication using mat1/mat2 vectors
+    for(i = 0; i < size; i++){
+        for(j = 0; j < size; j++){
+            resultVector[(i * size) + j] = 0;
             for(r = 0; r < size; r++){
-                result[i][j] += mat1[i][r] * mat2[r][j];
+                resultVector[(i * size) + j] += (mat1Vector[(i * size) + r] * mat2Vector[(r * size) + j]);
             }
         }
     }
 
-    //now copy to answer matrix
-    //...
-
-    //free original result matrix
-    free_matrix(result, size);
+    //put back into answer from arguments
+    for(i = 0; i < size; i++){
+        for(j = 0; j < size; j++){
+            uintptr_t resultAddr = (uintptr_t)answer + (((i * size) * sizeof(int)) + (j * sizeof(int)));
+            PutVal((void*)resultAddr, (void*)&resultVector[(i*size) + j], sizeof(int)); 
+        }
+    }
 }
 /*
  * Part 2: Add a virtual to physical page translation to the TLB.
@@ -362,21 +388,4 @@ int isBit( int page )
         return 0;
     }
     
-}
-
-int** allocate_matrix(int rows, int cols){
-  int** ret_val = (int**)malloc(rows * sizeof(int*));
-  int i;
-  for(i = 0; i < rows; i++){
-    ret_val[i] = (int*)malloc(cols * sizeof(int));
-  }
-  return ret_val;
-}
-
-void free_matrix(int** arr1, int rows){
-  int i;
-  for(i = 0; i < rows; i++){
-    free(arr1[i]);
-  }
-  free(arr1);
 }
