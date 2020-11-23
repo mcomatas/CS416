@@ -9,6 +9,9 @@
     5. implemenet direct mapped TLB
 */
 
+int DEBUG = 0;
+int nextPage = -1;
+struct pair pairAddrPairs[262144];
 /*
 Function responsible for allocating and setting your physical memory 
 */
@@ -17,31 +20,27 @@ void SetPhysicalMem() {
     //Allocate physical memory using mmap or malloc; this is the total size of
     //your memory you are simulating
     physicalMem = malloc(MEMSIZE * sizeof(char));  //had it as MEM_SIZE, I think it is just MEMSIZE though
-    virtualMem = malloc(MAX_MEMSIZE * sizeof(char));
+    //virtualMem = malloc(MAX_MEMSIZE * sizeof(char));
 
     memset(physicalMem, '0', MEMSIZE * sizeof(char));
-    memset(virtualMem, '0', MAX_MEMSIZE * sizeof(char));
+    //memset(virtualMem, '0', MAX_MEMSIZE * sizeof(char));
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
-    physBitMap = malloc( NUM_PHYS_PGS * sizeof(char));
+    //physBitMap = malloc( NUM_PHYS_PGS * sizeof(char));
     virtBitMap = malloc( NUM_VIRT_PGS * sizeof(char));
 
-    memset(physBitMap, '0', NUM_PHYS_PGS * sizeof(char));
+    //memset(physBitMap, '0', NUM_PHYS_PGS * sizeof(char));
     memset(virtBitMap, '0', NUM_VIRT_PGS * sizeof(char));
 
-    //Initialize Page Directory here
+    int i;
+    for(i = 0; i < 262144; i++){
+        pairAddrPairs[i].used = -1;
+        pairAddrPairs[i].addr = 1;
+        pairAddrPairs[i].pages = NULL;
+        pairAddrPairs[i].numPages = -1;
+    }
 
-    pageDirectory = malloc(1024 * 1024 * sizeof(pde_t));
-
-    memset(pageDirectory, 0, 1024 * 1024 * sizeof(pde_t));
-
-    oneBit( 0 );//allocate outer page table on the first page in mem
-
-    //referring to the offset, outer, and inner bits
-    offset = 12;
-    outer = 12;
-    inner = 10;
-
+    if(DEBUG)printf("phys mem set\n");
 }
 
 
@@ -56,40 +55,13 @@ pte_t * Translate(pde_t *pgdir, void *va) {
     //directory index and page table index get the physical address
     
     //uintptr_t virtualAddress = (uintptr_t)va;
-    pte_t virtualAddress = (pte_t)va;
-
-    //consider the possibility of va being NULL
-
-
-    //so we have a virtual addess [ 20 bit VPN | 12 bit offset ]
-    // [ 10 bit outer index | 10 bit inner index | 12 bit offset ] this is for 4KB pages
-    //outer bit index is page directory, inner index is page table
-
-    //get the outer index from VA
-    //int outerIndex = ( virtualAddress >> 22 ) | 0; //shfit 22 right for outer 10 bits then bitwise OR it with 0 (Might not need the bitwise OR actually)
-    //int innerIndex = (( virtualAddress << 10 ) >> 22 ) | 0; //I am not sure if this works (shifting 10 left then 22 right), but esentially we get the inner index (the 10 bits that rep the inner index)
-    //int offset; //need to get offset here which is the last twelve bits
-
-    //((( 1 << k ) - 1) & (num >> ( p - 1 )))
+    uintptr_t virtualAddress = (pte_t)va;
     
-    int outerIndex = virtualAddress >> 22; //bit shift 22 times to get outer
-    int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
-
-    pte_t* innerPage = (pte_t*)pgdir[outerIndex];
-    //if the inner page table is not allocated
-    if( !innerPage )
-    {
-        return NULL;
-    }
-
-    pte_t* page = (pte_t*)innerPage[innerIndex];
-    //if the page is not allocated
-    if( !page )
-    {
-        return NULL;
-    }
-
-    return page;
+    //int outerIndex = virtualAddress >> 22; //bit shift 22 times to get outer
+    int outerIndex = (((1 << 10) - 1) & (virtualAddress >> (23 - 1)));
+    int innerIndex = (((1 << 10) - 1) & (virtualAddress >> (13 - 1)));
+    pte_t* mapping = (pgdir + outerIndex * 1024 + innerIndex);
+    return (pte_t*)mapping;
 }
 
 
@@ -110,24 +82,19 @@ PageMap(pde_t *pgdir, void *va, void *pa)
     //uintptr_t virtualAddress = (uintptr_t)va;
     pte_t virtualAddress = (pte_t)va;
 
-    int outerIndex = virtualAddress >> 22; //bit shift 22 times to get outer
-    int innerIndex = ((( 1 << 10 ) - 1) & ( virtualAddress >> ( 13 - 1 )));
+    int outerIndex = (((1 << 10) - 1) & (virtualAddress >> (23 - 1)));
+    int innerIndex = (((1 << 10) - 1) & (virtualAddress >> (13 - 1)));
 
-    pte_t* innerPage = (pte_t*)pgdir[outerIndex];
-    //if inner page table is not allocated, allocate it
-    if( !innerPage )
-    {
-        pgdir[outerIndex] = (pte_t)get_next_avail(NUM_PHYS_PGS);
+    pte_t* mapping = (pgdir + outerIndex * 1024 + innerIndex);
+
+    //no mapping = set to pa
+    if(*mapping == 0){
+        mapping = (pte_t*)pa;
+        return 1;
     }
 
-    pte_t* page = (pte_t*)innerPage[innerIndex];
-    if( page )
-    {
-        innerPage[innerIndex] = (pte_t)pa;
-        return 0;//on success
-    }
-
-    return -1;//on failure
+    //has mapping just return 0
+    return 0;
 }
 
 
@@ -136,34 +103,39 @@ PageMap(pde_t *pgdir, void *va, void *pa)
 void *get_next_avail(int num_pages) {
  
     //Use virtual address bitmap to find the next free page
-    
-    //searching for contiguous pages
-    int i, j;
-    int success = 0, jCount = 0;
-    uintptr_t foundAddr = 0;
-    for(i = 1; i < NUM_VIRT_PGS; i++){
-        jCount = 0;
-        //check if the pages starting from the 0 is contig
+    //walk thru virt page bitmap
+    int i = 0, j = i, jCount = 0, success = 0;
+
+    for(i = 0; i < NUM_VIRT_PGS; i++){
+        jCount = 0, success = 0;
+        //candidate
         if(virtBitMap[i] == '0'){
-            foundAddr = (uintptr_t)virtualMem + (i * PGSIZE);
-            for(j = i; j < num_pages, j < NUM_VIRT_PGS; j++){
+            //check for the contigs
+            for(j = i; j < NUM_VIRT_PGS; j++){
                 if(virtBitMap[j] == '0'){
                     jCount++;
+                    //check if we found all we need
+                    if(jCount == num_pages){
+                        success = 1;
+                        break;
+                    }
+                }
+                else{
+                    break;
                 }
             }
-            if(jCount == num_pages) success = 1;
-        }
-        //if we found the contiguous pages, return the address
-        if(success == 1){
-            return (void*)foundAddr;
-        }
-        //else skip the i variable forward to where j left off
-        else{
-            i = j;
+            //found them
+            if(success == 1){
+                if(DEBUG)printf("next avail page %d\n", i);
+                nextPage = i;
+                break;
+            }
         }
     }
 
-    //couldn't find anything, return null
+    if(success == 0){
+        nextPage = -1;
+    }
     return NULL;
 }
 
@@ -174,30 +146,70 @@ and used by the benchmark
 void *myalloc(unsigned int num_bytes) {
 
     //HINT: If the physical memory is not yet initialized, then allocate and initialize.
-    if(physicalMem == NULL){
-        SetPhysicalMem();
-    }
-
-    int numPages = (int)ceil(num_bytes / PGSIZE);
+    //if(DEBUG) printf("%d\n", numPages);
 
    /* HINT: If the page directory is not initialized, then initialize the
    page directory. Next, using get_next_avail(), check if there are free pages. If
    free pages are available, set the bitmaps and map a new page. Note, you will 
    have to mark which physical pages are used. */
-    char* nextStart = get_next_avail(numPages);
-    if(nextStart == NULL){ //can't find any
-        printf("malloc error: no space\n");
+    if(physicalMem == NULL){
+        SetPhysicalMem();
+    }
+
+    if(pageDirectory == NULL) {
+       pageDirectory = malloc(1024 * 1024 * sizeof(pte_t*));
+       memset(pageDirectory, 0, 1024 * 1024 * sizeof(pte_t*));
+    }
+
+    int numPages = (num_bytes / PGSIZE) + 1;
+    if(num_bytes % PGSIZE == 0) numPages--;
+    //get next page to use
+    get_next_avail(numPages);
+    if(nextPage == -1){ //can't find any
+        if(DEBUG)printf("malloc error: no space\n");
         return NULL;
     }
-
-    int i;
-    uintptr_t virtAdd = (uintptr_t)nextStart;
-    int index = (int)ceil(virtAdd/4096);
-    for(i = 0; i < numPages; i++){
-        virtBitMap[index + i] = '1';
+    //set bitmap for the pages
+    int i = nextPage, j = 0;
+    while(j < numPages){
+        virtBitMap[i] = '1';
+        i++;
+        j++;
     }
 
-    return NULL;
+    pde_t pageAddr = (pde_t)physicalMem + (PGSIZE * nextPage);
+
+    int outerIndex = (((1 << 10) - 1) & (pageAddr >> (23 - 1)));
+    int innerIndex = (((1 << 10) - 1) & (pageAddr >> (13 - 1)));
+
+    pte_t* mapping = (pageDirectory + outerIndex * 1024 + innerIndex);
+
+    if(*mapping == 0){
+        mapping = (pte_t*)pageAddr;
+    }
+
+    //fill in part in pairs list
+    unsigned long toCompare = -1;
+    for(i = 0; i < 262144; i++){
+        //found a place
+        if(pairAddrPairs[i].used == -1){
+            //give it the addres
+            pairAddrPairs[i].addr = (unsigned long)pageAddr;
+            //give it all the pages it owns
+            pairAddrPairs[i].pages = malloc(numPages * sizeof(int));
+            for(j = 0; j < numPages; j++){
+                pairAddrPairs[i].pages[j] = nextPage + j;
+            }
+            //call it used
+            pairAddrPairs[i].used = 1;
+            //mark how many pages it has
+            pairAddrPairs[i].numPages = numPages;
+            break;
+        }
+    }
+
+    if(DEBUG)printf("MALLOC PAGEADDR:%lu\n", pageAddr);
+    return (void*)pageAddr;
 }
 
 /* Responsible for releasing one or more memory pages using virtual address (va)
@@ -205,29 +217,60 @@ void *myalloc(unsigned int num_bytes) {
 void myfree(void *va, int size) {
 
     //Free the page table entries starting from this virtual address (va)
-    // Also mark the pages free in the bitmap
-    //Only free if the memory from "va" to va+size is valid
-    int i = 0, success = 1;
-    int numPages = (int)ceil(size/PGSIZE);
+    pte_t* physAddr = Translate(pageDirectory, va);
+    unsigned long physAddrNum = (unsigned long)physAddr;
+    unsigned long vaNum = (unsigned long)va;
+    if(DEBUG)printf("MUST FREE VA:%ld HEX VALUE:%p\n", physAddrNum, va);
+    // printf("(FREE) VAL AT PHYS ADDR:%ld ADDR:%lu\n", *physAddr, physAddrNum);
+    // //get bits for addr
+    // int outerIndex = (((1 << 10) - 1) & (physAddrNum >> (23 - 1)));
+    // int innerIndex = (((1 << 10) - 1) & (physAddrNum >> (13 - 1)));
+    // //get page start to free
+    // uintptr_t physicalMemStart = (uintptr_t)physicalMem;
+    // unsigned int pageStartPoint = (physAddrNum - physicalMemStart) / PGSIZE;
+    // printf("FREE PAGE: %u\n", pageStartPoint);
+    int i, j;
+    for(i = 0; i < 262144; i++){
+        if(pairAddrPairs[i].used == 1) {
+            // printf("PAGES OWNED BY %ld: ", pairAddrPairs[i].addr);
+            // for(j = 0; j < pairAddrPairs[i].numPages; j++){
+            //     printf("%d ", pairAddrPairs[i].pages[j]);
+            // }
+            // printf("\n");
+            if(pairAddrPairs[i].addr == vaNum){
+                for(j = 0; j < pairAddrPairs[i].numPages; j++){
+                    virtBitMap[pairAddrPairs[i].pages[j]] = '0';
+                }
+            }
+        }
+    }
 
-    uintptr_t virtAdd = (uintptr_t)va;
-    int index = (int)ceil(virtAdd/4096);
+    // // Also mark the pages free in the bitmap
+    // //Only free if the memory from "va" to va+size is valid
+    // i = pageStartPoint, j = 0;
 
-    //check if all the memory is valid
-    for(i = 0; i < numPages; i++){
-        //check via going page by page and seeing if they're all '1' bits
-        if(virtAdd + i == '0') success = 0;
-    }
-    //if all memory is not valid, return
-    if(success == 0){
-        printf("free error: not all valid space\n");
-        return;
-    }
-    
-    for(i = 0; i < numPages; i++){
-        //free all the memory by setting the page map bits to '0'
-        virtBitMap[index + i] = '0';
-    }
+    // int numPages = (size / PGSIZE) + 1;
+    // if(size % PGSIZE == 0) numPages--;
+    // //check for validity of pages
+    // while(j < numPages){
+    //     if(virtBitMap[i] == '0'){
+    //         printf("free error, not all valid memory\n");
+    //         return;
+    //     }
+    //     i++;
+    //     j++;
+    // }
+    // //free
+    // i = pageStartPoint, j = 0;
+
+    // while(j < numPages){
+    //     virtBitMap[i] = '0';
+    //     i++;
+    //     j++;
+    // }
+
+    // pte_t* mapping = (pageDirectory + outerIndex * 1024 + innerIndex);
+    // *mapping = 0;
 }
 
 
@@ -241,7 +284,7 @@ void PutVal(void *va, void *val, int size) {
        than one page. Therefore, you may have to find multiple pages using Translate()
        function.*/
     pte_t* physAddr = Translate( pageDirectory, va );
-    memcpy( val, physAddr, size );
+    memcpy( physAddr, val, size );
 }
 
 
@@ -253,7 +296,7 @@ void GetVal(void *va, void *val, int size) {
     If you are implementing TLB,  always check first the presence of translation
     in TLB before proceeding forward */
     pte_t* physAddr = Translate( pageDirectory, va ); 
-    memcpy( physAddr, val, size );
+    memcpy( val, physAddr, size );
 }
 
 
@@ -272,7 +315,7 @@ void MatMult(void *mat1, void *mat2, int size, void *answer) {
     store the result to the "answer array"*/
 
     //allocate storage of each matrices' numbers and matrix for final answer
-    int** resultVector = malloc(size * size * sizeof(int));
+    int* resultVector = malloc(size * size * sizeof(int));
     int* mat1Vector = malloc(size * size * sizeof(int));
     int* mat2Vector = malloc(size * size * sizeof(int));
 

@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
 
 //Assume the address space is 32 bits, so the max memory size is 4GB
 //Page size is 4KB
@@ -36,16 +35,11 @@ typedef unsigned long pde_t;
 
 // NEW: physical memory, page states
 char* physicalMem;
-char* virtualMem;
+//char* virtualMem;
 char* physBitMap;
 char* virtBitMap;
 pde_t* pageDirectory;
 // pde_t pageDirectory;
-
-int outer;
-int inner;
-int offset;
-
 
 #define TLB_SIZE 120
 
@@ -57,6 +51,13 @@ struct tlb {
     //Assume each bucket to be 4 bytes
 };
 struct tlb tlb_store;
+
+struct pair{
+    int used;
+    unsigned long addr;
+    int* pages;
+    int numPages;
+};
 
 
 void SetPhysicalMem();
