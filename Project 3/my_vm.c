@@ -269,6 +269,11 @@ void myfree(void *va, int size) {
         if(pairAddrPairs[i].used == 1) {
             if(pairAddrPairs[i].addr == vaNum){
                 for(j = 0; j < pairAddrPairs[i].numPages; j++){
+                    if(pairAddrPairs[i].pages[j] == '0'){
+                        //can't free all this memory
+                        printf("free error not all valid memory\n");
+                        return;
+                    }
                     virtBitMap[pairAddrPairs[i].pages[j]] = '0';
                 }
             }
@@ -362,7 +367,7 @@ void MatMult(void *mat1, void *mat2, int size, void *answer) {
     for(i = 0; i < size; i++){
         for(j = 0; j < size; j++){
             uintptr_t mat1addr = (uintptr_t)mat1 + (((i * size) * sizeof(int)) + (j * sizeof(int)));
-            uintptr_t mat2addr = (uintptr_t)mat2 + (((i * size) * sizeof(int)) + (j * sizeof(int)));;
+            uintptr_t mat2addr = (uintptr_t)mat2 + (((i * size) * sizeof(int)) + (j * sizeof(int)));
             GetVal((void*)mat1addr, &temp1, sizeof(int));
             GetVal((void*)mat2addr, &temp2, sizeof(int));
             mat1Vector[(i * size) + j] = temp1;

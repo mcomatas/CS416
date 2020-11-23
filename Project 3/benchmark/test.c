@@ -1,11 +1,18 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <time.h>
 #include "../my_vm.h"
 
 #define SIZE 5
 
 int main() {
+
+    struct timespec start, end;
+    clock_gettime(CLOCK_REALTIME, &start);
 
     printf("Allocating three arrays of 400 bytes\n");
     void *a = myalloc(100*4);
@@ -68,5 +75,10 @@ int main() {
         printf("free function does not work\n");
 
     print_TLB_missrate();
+
+    clock_gettime(CLOCK_REALTIME, &end);
+    printf("running time: %lu micro-seconds\n", 
+	       (end.tv_sec - start.tv_sec) * 1000 + (end.tv_nsec - start.tv_nsec) / 1000000);
+
     return 0;
 }
