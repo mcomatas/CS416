@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <pthread.h>
 
 //Assume the address space is 32 bits, so the max memory size is 4GB
 //Page size is 4KB
@@ -43,12 +44,25 @@ pde_t* pageDirectory;
 
 #define TLB_SIZE 120
 
+//reps a tlb entry
+struct tlbEntry{
+    int used;
+    int time;
+    void* virtAddr;
+    pte_t* physAddr;
+};
+
 //Structure to represents TLB
 struct tlb {
 
     //Assume your TLB is a direct mapped TLB of TBL_SIZE (entries)
     // You must also define wth TBL_SIZE in this file.
     //Assume each bucket to be 4 bytes
+    struct tlbEntry entries[TLB_SIZE];
+    int currentLoad;
+    double missRate;
+    int hits;
+    int misses;
 };
 struct tlb tlb_store;
 
@@ -72,6 +86,8 @@ void PutVal(void *va, void *val, int size);
 void GetVal(void *va, void *val, int size);
 void MatMult(void *mat1, void *mat2, int size, void *answer);
 void print_TLB_missrate();
+pte_t* check_TLB(void *va);
+int add_TLB(void *va, void *pa);
 
 void oneBit( int page );
 void zeroBit( int page );
