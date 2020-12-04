@@ -11,4 +11,5 @@ struct ListNode{
 };
 
 struct ListNode* insert(struct ListNode* head, char* val);
+void cleanList(struct ListNode* head);
 void printList();

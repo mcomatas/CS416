@@ -3,12 +3,11 @@
 char wdBuffer[500];
 char inputBuffer[500];
 char* delims = " ";
-struct ListNode* tokenList = NULL;
 
 int main(int argc, char** argv){
     //command shell inf loop
     while(1){
-        tokenList = NULL;
+        struct ListNode* tokenList = NULL;
         //setup prompt
         getcwd(wdBuffer, 500);
         strcat(wdBuffer, " $ ");
@@ -16,7 +15,7 @@ int main(int argc, char** argv){
 
         //get input - space at the beginning to accomodate for loop, [^\n] says to take input until a new line
         scanf(" %[^\n]s", inputBuffer);
-        printf("input: %s\n", inputBuffer);
+        //printf("input: %s\n", inputBuffer);
         //tokenize input into LL
         char* token;
 
@@ -32,6 +31,9 @@ int main(int argc, char** argv){
         //printf("head: %s\n", tokenList->val);
 
         //then do the command here
+
+        //clean list to prep for next loop
+        cleanList(tokenList);
     }
     return 0;
 }
@@ -44,7 +46,7 @@ struct ListNode* insert(struct ListNode* head, char* val){
     //empty
     if(head == NULL){
         head = toInsert;
-        printf("inserted\n");
+        //printf("inserted\n");
         return head;
     }
     //not empty
@@ -59,6 +61,18 @@ struct ListNode* insert(struct ListNode* head, char* val){
     return head;
 }
 
+//freees the nodes
+void cleanList(struct ListNode* head){
+    struct ListNode* traverser = head;
+    struct ListNode* lagger = NULL;
+    while(traverser != NULL){
+        lagger = traverser;
+        traverser = traverser->next;
+        free(lagger);
+    }
+}
+
+//prints the list
 void printList(struct ListNode* head){
     struct ListNode* traverser = head;
     while(traverser != NULL){
