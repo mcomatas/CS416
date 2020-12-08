@@ -5,7 +5,9 @@ char inputBuffer[500];
 char* delims = " ";
 
 int main(int argc, char** argv){
-    //command shell inf loop
+    //set sig handler
+    signal(SIGINT, interruptHandler);
+    //command shell inf loop, will be broken if ctrl+c happens + "exit" is entered
     while(1){
         struct ListNode* tokenList = NULL;
         //setup prompt
@@ -27,15 +29,29 @@ int main(int argc, char** argv){
             tokenList = insert(tokenList, token);
             token = strtok(NULL, delims);
         }
-        //printList(tokenList);
+        printList(tokenList);
         //printf("head: %s\n", tokenList->val);
 
         //then do the command here
+
 
         //clean list to prep for next loop
         cleanList(tokenList);
     }
     return 0;
+}
+
+//interrupt handler (ctrl+c)
+void interruptHandler(){
+    char interruptBuffer[500];
+    printf("\nSIGINT detected.  If you wish to exit, type in \"exit\": ");
+
+    scanf(" %[^\n]s", interruptBuffer);
+    //printf("%s\n", interruptBuffer);
+    if(strcmp(interruptBuffer, "exit") == 0){
+        //shellOpen = 0; //this will make it so the loop dont run again
+        exit(0);
+    }
 }
 
 //no need to worry about duplicates or anything just insert
