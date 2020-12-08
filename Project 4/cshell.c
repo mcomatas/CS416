@@ -24,16 +24,22 @@ int main(int argc, char** argv){
         //get first tok
         token = strtok(inputBuffer, delims);
 
+        //if the command is exit get out
+        if(strcmp(token, "exit") == 0){
+            exit(0);
+        }
+
         //get rest of tokens
         while(token != NULL){
             tokenList = insert(tokenList, token);
             token = strtok(NULL, delims);
         }
-        printList(tokenList);
+        //printList(tokenList);
         //printf("head: %s\n", tokenList->val);
 
-        //then do the command here
+        
 
+        //then do the command here
 
         //clean list to prep for next loop
         cleanList(tokenList);
@@ -42,16 +48,18 @@ int main(int argc, char** argv){
 }
 
 //interrupt handler (ctrl+c)
-void interruptHandler(){
-    char interruptBuffer[500];
-    printf("\nSIGINT detected.  If you wish to exit, type in \"exit\": ");
+void interruptHandler(int signalNumber){
+    // char interruptBuffer[500];
+    // //printf("\nSIGINT detected.  If you wish to exit, type in \"exit\": ");
 
-    scanf(" %[^\n]s", interruptBuffer);
-    //printf("%s\n", interruptBuffer);
-    if(strcmp(interruptBuffer, "exit") == 0){
-        //shellOpen = 0; //this will make it so the loop dont run again
-        exit(0);
-    }
+    // scanf(" %[^\n]s", interruptBuffer);
+    // //printf("%s\n", interruptBuffer);
+    // if(strcmp(interruptBuffer, "exit") == 0){
+    //     //shellOpen = 0; //this will make it so the loop dont run again
+    //     exit(0);
+    // }
+
+    // //signal(SIGINT, interruptHandler);
 }
 
 //no need to worry about duplicates or anything just insert
