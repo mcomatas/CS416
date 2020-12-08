@@ -38,7 +38,33 @@ int main(int argc, char** argv){
 
         //fork a child process to run the commands
         if(fork() == 0){
-            printList(tokenList);
+            //printList(tokenList);
+            //buffer for first arg of execvp
+            char commandBuffer[50];
+            //buffer for second arg of execvp
+            char* argBuffer[50];
+
+            strcpy(commandBuffer, tokenList->val);
+            printf("%s\n", commandBuffer);
+
+            struct ListNode* traverser = tokenList;
+            int count = 0; int i;
+            while(traverser != NULL){
+                //strcpy(argBuffer[count], traverser->val);
+                argBuffer[count] = traverser->val;
+                count++;
+                traverser = traverser->next;
+            }
+            argBuffer[count] = NULL;
+            count++;
+
+            for(i = 0; i < count; i++){
+                printf("%s - ", argBuffer[i]);
+            }
+            printf("\n");
+
+            execvp(commandBuffer, argBuffer);
+
             exit(0);
         }
         //have the original parent process wait on it
