@@ -26,22 +26,27 @@ int main(int argc, char** argv){
 
         //if the command is exit get out
         if(strcmp(token, "exit") == 0){
+            cleanList(tokenList);
             exit(0);
         }
 
-        //get rest of tokens
+        //otherwise get rest of tokens
         while(token != NULL){
             tokenList = insert(tokenList, token);
             token = strtok(NULL, delims);
         }
-        //printList(tokenList);
-        //printf("head: %s\n", tokenList->val);
 
-        
+        //fork a child process to run the commands
+        if(fork() == 0){
+            printList(tokenList);
+            exit(0);
+        }
+        //have the original parent process wait on it
+        else{
+            wait(NULL);
+        }
 
-        //then do the command here
-
-        //clean list to prep for next loop
+        //clean list to prep for next loop iteration
         cleanList(tokenList);
     }
     return 0;
