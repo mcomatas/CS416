@@ -1,7 +1,7 @@
 #include "cshell.h"
 
-char wdBuffer[500];
-char inputBuffer[500];
+char wdBuffer[512];
+char inputBuffer[512];
 char* delims = " ";
 
 int main(int argc, char** argv){
@@ -58,12 +58,12 @@ int main(int argc, char** argv){
 
 void doCommands(struct ListNode* tokenList){
     char commandBuffer[50];
-    char* argBuffer[50];
+    char* argBuffer[128];
 
     int newCommand = 1, count = 0;
     struct ListNode* traverser = tokenList;
     while(traverser != NULL){
-        //deal with a semicolon by executing the currently stored command
+        //; execute currently stored command
         if(strcmp(traverser->val, ";") == 0){
             argBuffer[count] = NULL;
             count++;
@@ -76,10 +76,72 @@ void doCommands(struct ListNode* tokenList){
             count = 0;
             newCommand = 1;
             traverser = traverser->next;
-            if(traverser == NULL) break;
+            if(traverser == NULL) {
+                //if(DEBUG)printf("had to break after semicolon\n");
+                break;
+            }
         }
 
-        //just had a ; or initializing, bring in the new command name
+        //redirection >> >
+        else if(strcmp(traverser->val, ">") == 0 || strcmp(traverser->val, ">>") == 0){ // > is make new, >> is append
+            int mode = 0;
+            //1 = rewrite, 2 = append
+            if(strcmp(traverser->val, ">") == 0) mode = 1;
+            else mode = 2;
+            
+            //get name of file by getting next token
+            char fileBuffer[100];
+            traverser = traverser->next;
+            if(traverser == NULL) return;
+            strcpy(fileBuffer, traverser->val);
+
+            //open the file and duplicate the fds
+            if(mode == 1){
+                //erases whatever was in the file
+                fclose(fopen(fileBuffer, "w"));
+            }
+            int fd = open(fileBuffer, O_CREAT | O_WRONLY | O_APPEND);
+            //save current stdout location to restore it later
+            int oldStdout = dup(1);
+
+            dup2(fd, 1);
+
+            //now run the previously stored command
+            argBuffer[count] = NULL;
+            count++;
+            if(fork() == 0){
+                execvp(commandBuffer, argBuffer);
+            }
+            else{
+                wait(NULL);
+            }
+            //restore old stdout
+            dup2(oldStdout, 1);
+            close(oldStdout);
+            close(fd);
+
+            count = 0;
+            newCommand = 1;
+            traverser = traverser->next;
+            if(traverser == NULL) {
+                //if(DEBUG)printf("had to break after redirection\n");
+                break;
+            }
+            else{ //have to go again, because if it didnt break already, then there's a semicolon after that we have to get through.
+                traverser = traverser->next;
+                if(traverser == NULL) { //check again if it reached null
+                    //if(DEBUG)printf("had to break after redirection\n");
+                    break;
+                }
+            }
+        }
+
+        //piping
+        else if(strcmp(traverser->val, "|") == 0){
+
+        }
+
+        //just had a special character or initializing, bring in the new command name
         if(newCommand){
             strcpy(commandBuffer, traverser->val);
             newCommand = 0;
