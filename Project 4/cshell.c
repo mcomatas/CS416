@@ -6,7 +6,8 @@ char* delims = " ";
 
 int main(int argc, char** argv){
     //set sig handler
-    signal(SIGINT, interruptHandler);
+    //signal(SIGINT, interruptHandler);
+
     //command shell inf loop, will be broken if ctrl+c happens + "exit" is entered
     while(1){
         struct ListNode* tokenList = NULL;
@@ -36,47 +37,71 @@ int main(int argc, char** argv){
             token = strtok(NULL, delims);
         }
 
-        //fork a child process to run the commands
-        if(fork() == 0){
-            //printList(tokenList);
-            //buffer for first arg of execvp
-            char commandBuffer[50];
-            //buffer for second arg of execvp
-            char* argBuffer[50];
 
-            strcpy(commandBuffer, tokenList->val);
-            printf("%s\n", commandBuffer);
-
-            struct ListNode* traverser = tokenList;
-            int count = 0; int i;
-            while(traverser != NULL){
-                //strcpy(argBuffer[count], traverser->val);
-                argBuffer[count] = traverser->val;
-                count++;
-                traverser = traverser->next;
-            }
-            argBuffer[count] = NULL;
-            count++;
-
-            for(i = 0; i < count; i++){
-                printf("%s - ", argBuffer[i]);
-            }
-            printf("\n");
-
-            execvp(commandBuffer, argBuffer);
-
-            exit(0);
-        }
-        //have the original parent process wait on it
-        else{
-            wait(NULL);
-        }
+        doCommands(tokenList);
+        // //fork a child process to run the commands
+        // if(fork() == 0){
+        //     doCommands(tokenList);
+        //     //stop forkbombing ilab
+        //     exit(0);
+        // }
+        // //have the original parent process wait on it
+        // else{
+        //     wait(NULL);
+        // }
 
         //clean list to prep for next loop iteration
         cleanList(tokenList);
     }
     return 0;
 }
+
+void doCommands(struct ListNode* tokenList){
+    char commandBuffer[50];
+    char* argBuffer[50];
+
+    int newCommand = 1, count = 0;
+    struct ListNode* traverser = tokenList;
+    while(traverser != NULL){
+        //deal with a semicolon by executing the currently stored command
+        if(strcmp(traverser->val, ";") == 0){
+            argBuffer[count] = NULL;
+            count++;
+            if(fork() == 0){
+                execvp(commandBuffer, argBuffer);
+            }
+            else{
+                wait(NULL);
+            }
+            count = 0;
+            newCommand = 1;
+            traverser = traverser->next;
+            if(traverser == NULL) break;
+        }
+
+        //just had a ; or initializing, bring in the new command name
+        if(newCommand){
+            strcpy(commandBuffer, traverser->val);
+            newCommand = 0;
+        }
+
+        argBuffer[count] = traverser->val;
+        count++;
+        traverser = traverser->next;
+    }
+
+    argBuffer[count] = NULL;
+    count++;
+    if(argBuffer[0] != NULL){
+        if(fork() == 0){
+            execvp(commandBuffer, argBuffer);
+        }
+        else{
+            wait(NULL);
+        }
+    }
+}
+
 
 //interrupt handler (ctrl+c)
 void interruptHandler(int signalNumber){

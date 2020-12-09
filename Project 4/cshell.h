@@ -12,6 +12,7 @@ struct ListNode{
     struct ListNode* next;
 };
 
+void doCommands(struct ListNode* tokenList);
 struct ListNode* insert(struct ListNode* head, char* val);
 void cleanList(struct ListNode* head);
 void printList();
