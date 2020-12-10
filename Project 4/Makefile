@@ -8,3 +8,4 @@ clean:
 	rm -f cshell
 	rm -f test
 	rm -f *.txt
+	rm -f tempforpiping123123

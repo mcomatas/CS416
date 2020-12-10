@@ -138,7 +138,82 @@ void doCommands(struct ListNode* tokenList){
 
         //piping
         else if(strcmp(traverser->val, "|") == 0){
+            char pipeCommandBuffer[50];
+            char* pipeArgBuffer[128];
+            int pipeArgCount = 0;
+            //gather the second command and put it in the above buffers
+            traverser = traverser->next;
+            strcpy(pipeCommandBuffer, traverser->val);
+            while(traverser->next != NULL){
+                pipeArgBuffer[pipeArgCount] = traverser->val;
+                pipeArgCount++;
+                if(strcmp(traverser->next->val, ";") == 0) break;
+                traverser = traverser->next;
+            }
+            pipeArgBuffer[pipeArgCount] = traverser->val;
+            pipeArgCount++;
+            // pipeArgBuffer[pipeArgCount] = NULL;
+            // pipeArgCount++;
 
+            //open a pipe of communication to be used between 2 children
+            int pipeBuffer[128];
+            int warp[2];
+            char outputBuffer[512];
+            //prep temp file
+            fclose(fopen("tempforpiping123123", "w")); //cleans file
+            int fd = open("tempforpiping123123", O_CREAT | O_WRONLY | O_APPEND);
+            int oldStdout = dup(1);
+            dup2(fd, 1);
+
+
+            //execute first command
+            argBuffer[count] = NULL;
+            count++;
+            if(fork() == 0){
+                execvp(commandBuffer, argBuffer);
+                exit(0);
+            }
+            else{
+                wait(NULL);
+            }
+            dup2(oldStdout, 1);
+            close(oldStdout);
+            close(fd);
+            
+            //grab all the results from the first command's temp file, add them and keep forking to execvp
+            FILE* fp = fopen("tempforpiping123123", "r");
+
+            char lineBuffer[512];
+            while(fgets(lineBuffer, 512, fp)){
+                int length = strlen(lineBuffer);
+                //strip the newline character
+                lineBuffer[length-1] = '\0';
+                //printf("%s", lineBuffer);
+                if(fork() == 0){
+                    strcpy(pipeArgBuffer[pipeArgCount], lineBuffer);
+                    pipeArgBuffer[pipeArgCount+1] = NULL;
+                    execvp(pipeCommandBuffer, pipeArgBuffer);
+                }
+                else{
+                    wait(NULL);
+                }
+            }
+            fclose(fp);
+
+            count = 0;
+            newCommand = 1;
+            traverser = traverser->next;
+            if(traverser == NULL) {
+                //if(DEBUG)printf("had to break after redirection\n");
+                break;
+            }
+            else{ //have to go again, because if it didnt break already, then there's a semicolon after that we have to get through.
+                traverser = traverser->next;
+                if(traverser == NULL) { //check again if it reached null
+                    //if(DEBUG)printf("had to break after redirection\n");
+                    break;
+                }
+            }
         }
 
         //just had a special character or initializing, bring in the new command name
