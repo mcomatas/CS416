@@ -72,7 +72,13 @@ void doCommands(struct ListNode* tokenList){
             argBuffer[count] = NULL;
             count++;
             if(strcmp(commandBuffer, "cd") == 0){
-                chdir(argBuffer[1]);
+                struct ListNode* cdList = NULL;
+                int i;
+                for(i = 0; i < count-1; i++){
+                    cdList = insert(cdList, argBuffer[i]);
+                }
+                dochdir(cdList);
+                cleanList(cdList);
             }
             else{
                 if(fork() == 0){
@@ -208,7 +214,7 @@ void doCommands(struct ListNode* tokenList){
                 }
             }
             fclose(fp);
-
+            remove("tempforpiping123123");
             count = 0;
             newCommand = 1;
             traverser = traverser->next;
@@ -240,7 +246,13 @@ void doCommands(struct ListNode* tokenList){
     count++;
     if(argBuffer[0] != NULL){
         if(strcmp(commandBuffer, "cd") == 0){
-            chdir(argBuffer[1]);
+            struct ListNode* cdList = NULL;
+            int i;
+            for(i = 0; i < count-1; i++){
+                cdList = insert(cdList, argBuffer[i]);
+            }
+            dochdir(cdList);
+            cleanList(cdList);
         }
         else{
             if(fork() == 0){
@@ -255,48 +267,38 @@ void doCommands(struct ListNode* tokenList){
 
 void dochdir(struct ListNode* tokenList)
 {
-    if( tokenList->next == NULL )
-    {
-        chdir( "/" );//if cd is listed with no args it brings it as far back as possible
-    }
-    else if( tokenList->next->val[0] =='\'' || tokenList->next->val[0] == '\"' )
-    {
-        char path[250];
-        char temp[250];
-        strcpy( path, "" );
-        tokenList = tokenList->next;
-        strcat(path, substr(tokenList->val, temp, 1, strlen(tokenList->val) - 1));
-        strcat(path, " " );
-        if( tokenList->next != NULL )
-            tokenList = tokenList->next;
-        while( tokenList != NULL )
-        {
-            if( tokenList->val[strlen(tokenList->val)-1] == '\'' || tokenList->val[strlen(tokenList->val)-1] == '\"' )
-            {
-                strcat(path, substr(tokenList->val, temp, 0, strlen(tokenList->val) - 1));
-                //printf("%s\n", path);
-                break;
+    tokenList = tokenList->next;
+    if(tokenList == NULL) chdir("/");
+
+    char pathBuffer[256];
+    memset(pathBuffer, 0, 256);
+    strcat(pathBuffer, wdBuffer);
+    int length = strlen(pathBuffer);
+    pathBuffer[length-3] = '/';
+    pathBuffer[length-2] = '\0';
+    struct ListNode* traverser = tokenList;
+    while(traverser != NULL){
+        length = strlen(pathBuffer);
+        //strcat(pathBuffer, traverser->val);
+        if(strcmp(traverser->val, "..") == 0){
+            int i;
+            for(i = length-2; i >= 0; i--){
+                if(pathBuffer[i] == '/'){
+                    pathBuffer[i+1] = '\0';
+                    break;
+                }
             }
-            else
-            {
-                strcat(path, tokenList->val);
-                strcat(path, " " );
-            }
-            tokenList = tokenList->next;
         }
-        if( chdir(path) != 0 )
-        {
-            perror( "Error" );
+        else{
+            strcat(pathBuffer, traverser->val);
+            strcat(pathBuffer, "/");
         }
-        strcpy(path, "");
+        if(traverser == NULL) break;
+        traverser = traverser->next;
     }
-    else
-    {
-        if( chdir(tokenList->next->val) != 0)
-        {
-            perror( "Error" );
-        }
-    }
+    //printf("%s\n", pathBuffer);
+
+    chdir(pathBuffer);
 }
 
 
