@@ -3,10 +3,14 @@
 char wdBuffer[512];
 char inputBuffer[512];
 char* delims = " ";
+int id;
+
+//please dont test multiple redirects or piping thank u
 
 int main(int argc, char** argv){
     //set sig handler
-    //signal(SIGINT, interruptHandler);
+    signal(SIGINT, interruptHandler);
+    id = getpid();
 
     //command shell inf loop, will be broken if ctrl+c happens + "exit" is entered
     while(1){
@@ -67,11 +71,16 @@ void doCommands(struct ListNode* tokenList){
         if(strcmp(traverser->val, ";") == 0){
             argBuffer[count] = NULL;
             count++;
-            if(fork() == 0){
-                execvp(commandBuffer, argBuffer);
+            if(strcmp(commandBuffer, "cd") == 0){
+                chdir(argBuffer[1]);
             }
             else{
-                wait(NULL);
+                if(fork() == 0){
+                    execvp(commandBuffer, argBuffer);
+                }
+                else{
+                    wait(NULL);
+                }
             }
             count = 0;
             newCommand = 1;
@@ -230,11 +239,62 @@ void doCommands(struct ListNode* tokenList){
     argBuffer[count] = NULL;
     count++;
     if(argBuffer[0] != NULL){
-        if(fork() == 0){
-            execvp(commandBuffer, argBuffer);
+        if(strcmp(commandBuffer, "cd") == 0){
+            chdir(argBuffer[1]);
         }
         else{
-            wait(NULL);
+            if(fork() == 0){
+                execvp(commandBuffer, argBuffer);
+            }
+            else{
+                wait(NULL);
+            }
+        }
+    }
+}
+
+void dochdir(struct ListNode* tokenList)
+{
+    if( tokenList->next == NULL )
+    {
+        chdir( "/" );//if cd is listed with no args it brings it as far back as possible
+    }
+    else if( tokenList->next->val[0] =='\'' || tokenList->next->val[0] == '\"' )
+    {
+        char path[250];
+        char temp[250];
+        strcpy( path, "" );
+        tokenList = tokenList->next;
+        strcat(path, substr(tokenList->val, temp, 1, strlen(tokenList->val) - 1));
+        strcat(path, " " );
+        if( tokenList->next != NULL )
+            tokenList = tokenList->next;
+        while( tokenList != NULL )
+        {
+            if( tokenList->val[strlen(tokenList->val)-1] == '\'' || tokenList->val[strlen(tokenList->val)-1] == '\"' )
+            {
+                strcat(path, substr(tokenList->val, temp, 0, strlen(tokenList->val) - 1));
+                //printf("%s\n", path);
+                break;
+            }
+            else
+            {
+                strcat(path, tokenList->val);
+                strcat(path, " " );
+            }
+            tokenList = tokenList->next;
+        }
+        if( chdir(path) != 0 )
+        {
+            perror( "Error" );
+        }
+        strcpy(path, "");
+    }
+    else
+    {
+        if( chdir(tokenList->next->val) != 0)
+        {
+            perror( "Error" );
         }
     }
 }
@@ -253,6 +313,13 @@ void interruptHandler(int signalNumber){
     // }
 
     // //signal(SIGINT, interruptHandler);
+    
+    if( getpid() != id )
+    {
+        exit(0);
+
+    }
+    printf("%s", wdBuffer);
 }
 
 //no need to worry about duplicates or anything just insert
@@ -296,4 +363,10 @@ void printList(struct ListNode* head){
         printf("%s ", traverser->val);
         traverser = traverser->next;
     }
+}
+
+char* substr(char* str, char* sub , int start, int len){
+    memcpy(sub, &str[start], len);
+    sub[len] = '\0';
+    return sub;
 }

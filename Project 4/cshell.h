@@ -15,6 +15,8 @@ struct ListNode{
     struct ListNode* next;
 };
 
+char* substr(char* str, char* sub , int start, int len);
+void dochdir(struct ListNode* tokenList);
 void doCommands(struct ListNode* tokenList);
 struct ListNode* insert(struct ListNode* head, char* val);
 void cleanList(struct ListNode* head);
